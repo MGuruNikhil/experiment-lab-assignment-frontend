@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { apiClient } from "@/lib/auth";
 
 type HeuristicSuggestion = {
@@ -32,9 +32,84 @@ export default function CreateGoalPage() {
   const [showModal, setShowModal] = useState(false);
   const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [useAI, setUseAI] = useState<boolean>(false);
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [aiInfo, setAiInfo] = useState<string | null>(null);
+  const [aiWarning, setAiWarning] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
+  type SuggestionHistoryItem = { id: string; provider: string; createdAt: string; expiresAt: string | null; response: unknown };
+  const [suggestionSource, setSuggestionSource] = useState<"heuristic" | "ai" | null>(null);
+  const [suggestionCached, setSuggestionCached] = useState<boolean>(false);
+  function getParsedJourneyTitle(resp: unknown): string | null {
+    if (resp && typeof resp === "object" && resp !== null && "parsed" in (resp as Record<string, unknown>)) {
+      const p = (resp as { parsed?: { journeyTitle?: string } }).parsed;
+      return typeof p?.journeyTitle === "string" ? p.journeyTitle : null;
+    }
+    return null;
+  }
+  // Parse a stored history response into a Suggestion for preview
+  function parseSuggestionFromHistory(resp: unknown): HeuristicSuggestion | null {
+    if (!resp || typeof resp !== "object") return null;
+    const r = resp as Record<string, unknown>;
+    if ("parsed" in r && r.parsed && typeof r.parsed === "object") {
+      const p = r.parsed as Record<string, unknown>;
+      const journeyTitle = typeof p.journeyTitle === "string" ? p.journeyTitle : null;
+      const durationWeeks = typeof p.durationWeeks === "number" ? p.durationWeeks : null;
+      const chunkRaw = p.chunking;
+      const chunking = chunkRaw === "weekly" || chunkRaw === "biweekly" ? chunkRaw : null;
+      const rawMilestones = Array.isArray(p.milestones) ? (p.milestones as unknown[]) : [];
+      const milestones = rawMilestones
+        .map((m, idx): HeuristicSuggestion["milestones"][number] | null => {
+          if (!m || typeof m !== "object") return null;
+          const mr = m as Record<string, unknown>;
+          const title = typeof mr.title === "string" ? mr.title : null;
+          if (!title) return null;
+          return {
+            title,
+            description: typeof mr.description === "string" ? mr.description : undefined,
+            orderIndex: typeof mr["orderIndex"] === "number" ? (mr["orderIndex"] as number) : idx,
+            startWeek: typeof mr.startWeek === "number" ? mr.startWeek : undefined,
+            endWeek: typeof mr.endWeek === "number" ? mr.endWeek : undefined,
+            estimatedHours: typeof mr.estimatedHours === "number" ? mr.estimatedHours : undefined,
+          };
+        })
+        .filter(Boolean) as HeuristicSuggestion["milestones"]; 
+      if (journeyTitle && durationWeeks !== null && chunking && milestones.length > 0) {
+        return { journeyTitle, durationWeeks, chunking, milestones };
+      }
+    }
+    // direct heuristic shape
+    const journeyTitle = typeof r["journeyTitle"] === "string" ? (r["journeyTitle"] as string) : null;
+    const durationWeeks = typeof r["durationWeeks"] === "number" ? (r["durationWeeks"] as number) : null;
+    const chunkRaw = r["chunking"];
+    const chunking = chunkRaw === "weekly" || chunkRaw === "biweekly" ? (chunkRaw as "weekly" | "biweekly") : null;
+    const msRaw = Array.isArray(r["milestones"]) ? (r["milestones"] as unknown[]) : null;
+    if (journeyTitle && durationWeeks !== null && chunking && msRaw) {
+      const milestones = msRaw
+        .map((m, idx): HeuristicSuggestion["milestones"][number] | null => {
+          if (!m || typeof m !== "object") return null;
+          const mr = m as Record<string, unknown>;
+          const title = typeof mr.title === "string" ? mr.title : null;
+          if (!title) return null;
+          return {
+            title,
+            description: typeof mr.description === "string" ? mr.description : undefined,
+            orderIndex: typeof mr["orderIndex"] === "number" ? (mr["orderIndex"] as number) : idx,
+            startWeek: typeof mr.startWeek === "number" ? mr.startWeek : undefined,
+            endWeek: typeof mr.endWeek === "number" ? mr.endWeek : undefined,
+            estimatedHours: typeof mr.estimatedHours === "number" ? mr.estimatedHours : undefined,
+          };
+        })
+        .filter(Boolean) as HeuristicSuggestion["milestones"]; 
+      if (milestones.length > 0) return { journeyTitle, durationWeeks, chunking, milestones };
+    }
+    return null;
+  }
+  const [history, setHistory] = useState<SuggestionHistoryItem[]>([]);
+  type AISuggestionResp = Partial<HeuristicSuggestion> & { cached?: boolean; llmError?: boolean; journeyId?: string };
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(_e: React.FormEvent) {
+    _e.preventDefault();
     setError(null);
     setLoading(true);
     try {
@@ -47,14 +122,76 @@ export default function CreateGoalPage() {
       });
 
       setCreatedGoalId(goal.id);
-      const { data: sug } = await apiClient.post(`/api/goals/${goal.id}/suggest`, {
-        useLLM: false,
-        chunking,
-        durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
-      });
+      setAiWarning(null);
+      setSuggestion(null);
 
-      setSuggestion(sug as HeuristicSuggestion);
-      setShowModal(true);
+      if (useAI) {
+        // Show modal with loading state while waiting for AI
+        setShowModal(true);
+        setAiLoading(true);
+        setAiInfo("Generating AI suggestion...");
+        try {
+          const { data: ai } = await apiClient.post(`/api/goals/${goal.id}/suggest`, {
+            useLLM: true,
+            chunking,
+            durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+          });
+          const aiData = ai as AISuggestionResp;
+          console.log("[ui] suggest.ai.response", { cached: aiData.cached, llmError: aiData.llmError, hasJourney: Boolean(aiData.journeyTitle && aiData.milestones) });
+          setSuggestionCached(Boolean(aiData?.cached));
+
+          if (aiData?.journeyTitle && aiData?.milestones) {
+            setSuggestion(aiData as HeuristicSuggestion);
+            setSuggestionSource("ai");
+          } else {
+            // Fallback to heuristic if AI did not return a valid plan
+            if (aiData?.llmError) setAiWarning("AI suggestion failed. Showing heuristic instead.");
+            const { data: sug } = await apiClient.post(`/api/goals/${goal.id}/suggest`, {
+              useLLM: false,
+              chunking,
+              durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+            });
+            setSuggestion(sug as HeuristicSuggestion);
+            setSuggestionSource("heuristic");
+            setSuggestionCached(false);
+          }
+        } catch (err: unknown) {
+          // On error (including 429), fallback to heuristic
+          const anyErr = err as { response?: { status?: number; data?: { retryAfter?: number } } };
+          const status = anyErr?.response?.status;
+          if (status === 429) {
+            const retryAfter = anyErr?.response?.data?.retryAfter;
+            const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            setAiWarning(`AI suggestion limit reached. Showing heuristic instead (limit resets ~${hh}:${mm}).`);
+          } else {
+            setAiWarning("AI suggestion failed. Showing heuristic instead.");
+          }
+          const { data: sug } = await apiClient.post(`/api/goals/${goal.id}/suggest`, {
+            useLLM: false,
+            chunking,
+            durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+          });
+          setSuggestion(sug as HeuristicSuggestion);
+          setSuggestionSource("heuristic");
+          setSuggestionCached(false);
+        } finally {
+          setAiLoading(false);
+          setAiInfo(null);
+        }
+      } else {
+        // No AI: get heuristic and show
+        const { data: sug } = await apiClient.post(`/api/goals/${goal.id}/suggest`, {
+          useLLM: false,
+          chunking,
+          durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+        });
+        setSuggestion(sug as HeuristicSuggestion);
+        setSuggestionSource("heuristic");
+        setSuggestionCached(false);
+        setShowModal(true);
+      }
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } }; message?: string };
       setError(err.response?.data?.error ?? err.message ?? "Failed to create goal");
@@ -66,29 +203,39 @@ export default function CreateGoalPage() {
   async function acceptSuggestion() {
     if (!suggestion) return;
     try {
-      setAccepting(true);
-      // Create a journey for the goal first
+  setAccepting(true);
       const goalId = createdGoalId ?? (await getLatestGoalId());
-      const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
-        title: suggestion.journeyTitle,
-        startDate: undefined,
-        endDate: undefined,
-        meta: { generated: "heuristic" },
-      });
-
-      // Sequentially create milestones
-      for (const m of suggestion.milestones) {
-        await apiClient.post(`/api/journeys/${journey.id}/milestones`, {
-          title: m.title,
-          description: m.description,
-          orderIndex: m.orderIndex,
-          startWeek: m.startWeek,
-          endWeek: m.endWeek,
-          estimatedHours: m.estimatedHours,
-        });
+      // Heuristic suggestions need explicit creation; AI suggestions may have already created journey server-side
+      if (!(suggestion as unknown as { journeyId?: string }).journeyId) {
+        // Avoid duplicates by checking for an existing journey with the same title
+        const existingGoal = await apiClient.get(`/api/goals/${goalId}`);
+        const existingJourney = (existingGoal.data?.journeys ?? []).find((j: { title?: string | null }) => (j.title ?? "") === suggestion.journeyTitle);
+        if (existingJourney) {
+          // Journey already exists (likely from earlier accept or AI). Do not re-add milestones.
+          setShowModal(false);
+          router.push(`/goals/${goalId}`);
+          return;
+        } else {
+          const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
+            title: suggestion.journeyTitle,
+            startDate: undefined,
+            endDate: undefined,
+            meta: { generated: suggestionSource === "ai" ? "openrouter" : "heuristic" },
+          });
+          const journeyId = journey.id as string;
+          for (const [idx, m] of suggestion.milestones.entries()) {
+            await apiClient.post(`/api/journeys/${journeyId}/milestones`, {
+              title: m.title,
+              description: m.description,
+              orderIndex: typeof m.orderIndex === "number" ? m.orderIndex : idx,
+              startWeek: m.startWeek,
+              endWeek: m.endWeek,
+              estimatedHours: m.estimatedHours,
+            });
+          }
+        }
       }
-
-      setShowModal(false);
+  setShowModal(false);
       router.push(`/goals/${goalId}`);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } }; message?: string };
@@ -102,6 +249,25 @@ export default function CreateGoalPage() {
     const r = await apiClient.get("/api/goals");
     return r.data?.[0]?.id as string;
   }
+
+  async function openHistory() {
+    try {
+      if (!createdGoalId) return;
+      const r = await apiClient.get(`/api/goals/${createdGoalId}/suggestions`);
+      setHistory(r.data || []);
+      setHistoryOpen(true);
+  } catch {
+      // ignore errors
+    }
+  }
+
+  const diffNote = useMemo(() => {
+    if (!suggestion) return null;
+    // We don't have the original heuristic stored separately; basic hint if AI modified title or milestone count vs a baseline could be integrated if we keep both.
+    // For now, show the count and title from the current suggestion.
+    const count = suggestion.milestones.length;
+    return `${count} milestones · Title: ${suggestion.journeyTitle}`;
+  }, [suggestion]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -159,7 +325,11 @@ export default function CreateGoalPage() {
             </select>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-4">
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={useAI} onChange={(e) => setUseAI(e.target.checked)} />
+            Use AI (OpenRouter)
+          </label>
           <button
             type="submit"
             className="px-4 py-2 bg-blue-600 text-white rounded"
@@ -167,32 +337,168 @@ export default function CreateGoalPage() {
           >
             {loading ? "Creating..." : "Create Goal"}
           </button>
+          {createdGoalId && (
+            <button type="button" className="px-3 py-2 text-sm border rounded" onClick={openHistory}>History</button>
+          )}
         </div>
       </form>
 
-      {showModal && suggestion && (
+      {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
-            <h2 className="text-xl font-semibold mb-2 text-slate-900 dark:text-slate-50">Suggested Journey</h2>
-            <div className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-              {suggestion.durationWeeks} weeks · {suggestion.chunking}
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggested Journey</h2>
+              <div className="flex items-center gap-2">
+                {suggestionSource && (
+                  <span className={`text-xs px-2 py-1 rounded ${suggestionSource === "ai" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200" : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                    {suggestionSource === "ai" ? "AI suggested" : "Heuristic"}
+                  </span>
+                )}
+                {suggestionCached && (
+                  <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">Cached</span>
+                )}
+              </div>
             </div>
-            <ol className="list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
-              {suggestion.milestones.map((m) => (
-                <li key={m.orderIndex}>
-                  <div className="font-medium text-slate-900 dark:text-slate-50">{m.title}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">
-                    Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h
-                  </div>
-                  {m.description && <div className="text-sm text-slate-700 dark:text-slate-200">{m.description}</div>}
-                </li>
-              ))}
-            </ol>
+            {aiLoading && (
+              <div className="mb-4">
+                <div className="text-sm text-indigo-600 mb-2">{aiInfo ?? "Generating AI suggestion..."}</div>
+                <div className="animate-pulse space-y-2">
+                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
+                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-2/3" />
+                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+                </div>
+              </div>
+            )}
+            {!aiLoading && aiInfo && <div className="text-sm text-indigo-600 mb-2">{aiInfo}</div>}
+            {aiWarning && <div className="text-sm text-amber-600 mb-2">{aiWarning}</div>}
+            {suggestion && (
+              <>
+                <div className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                  {suggestion.durationWeeks} weeks · {suggestion.chunking}
+                </div>
+                {diffNote && <div className="text-xs text-slate-500 mb-2">{diffNote}</div>}
+                <ol className="list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
+                  {suggestion.milestones.map((m, idx) => (
+                    <li key={`${idx}-${m.title}`}>
+                      <div className="font-medium text-slate-900 dark:text-slate-50">{m.title}</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                        Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h
+                      </div>
+                      {m.description && <div className="text-sm text-slate-700 dark:text-slate-200">{m.description}</div>}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
             <div className="flex justify-end gap-3 mt-4">
               <button className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-50 rounded" onClick={() => setShowModal(false)}>Close</button>
-              <button className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-60" onClick={acceptSuggestion} disabled={accepting}>
+              <button className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-60" onClick={acceptSuggestion} disabled={accepting || !suggestion}>
                 Accept Suggestion
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggestion History</h2>
+              <button className="px-3 py-1 text-sm border rounded" onClick={() => setHistoryOpen(false)}>Close</button>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-auto">
+              {history.map((h) => {
+                const title = getParsedJourneyTitle(h.response);
+                return (
+                  <div
+                    key={h.id}
+                    className="border rounded p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                    onClick={() => {
+                      const sug = parseSuggestionFromHistory(h.response);
+                      if (sug) {
+                        setSuggestion(sug);
+                        setSuggestionSource(h.provider === "openrouter" ? "ai" : "heuristic");
+                        setSuggestionCached(Boolean(h.expiresAt));
+                        setHistoryOpen(false);
+                        setShowModal(true);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        const sug = parseSuggestionFromHistory(h.response);
+                        if (sug) {
+                          setSuggestion(sug);
+                          setSuggestionSource(h.provider === "openrouter" ? "ai" : "heuristic");
+                          setSuggestionCached(Boolean(h.expiresAt));
+                          setHistoryOpen(false);
+                          setShowModal(true);
+                        }
+                      }
+                    }}
+                  >
+                    <div className="text-sm">{h.provider} · {new Date(h.createdAt).toLocaleString()}</div>
+                    {h.provider === "openrouter" && title && (
+                      <div className="text-sm text-slate-700 dark:text-slate-200">{title}</div>
+                    )}
+                  </div>
+                );
+              })}
+              {history.length === 0 && <div className="text-sm text-slate-500">No suggestions yet.</div>}
+            </div>
+            <div className="flex justify-end mt-3">
+              {createdGoalId && (
+        <button
+                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                  onClick={async () => {
+                    try {
+                      setAiLoading(true);
+                      setAiInfo("Generating AI suggestion...");
+          setHistoryOpen(false);
+                      const { data: ai } = await apiClient.post(`/api/goals/${createdGoalId}/suggest`, {
+                        useLLM: true,
+                        chunking,
+                        durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+                      });
+                      const aiData = ai as AISuggestionResp;
+                      console.log("[ui] regenerate.ai.response", { cached: aiData.cached, hasJourney: Boolean(aiData.journeyTitle && aiData.milestones) });
+                      setSuggestionCached(Boolean(aiData?.cached));
+                      if (aiData?.journeyTitle && aiData?.milestones) {
+                        setSuggestion(aiData as HeuristicSuggestion);
+                        setSuggestionSource("ai");
+                      } else {
+                        // Fallback to heuristic on no valid AI plan
+                        const { data: sug } = await apiClient.post(`/api/goals/${createdGoalId}/suggest`, {
+                          useLLM: false,
+                          chunking,
+                          durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
+                        });
+                        setSuggestion(sug as HeuristicSuggestion);
+                        setSuggestionSource("heuristic");
+                        setSuggestionCached(false);
+                      }
+                      setShowModal(true);
+                    } catch (err: unknown) {
+                      const anyErr = err as { response?: { status?: number; data?: { retryAfter?: number } } };
+                      const status = anyErr?.response?.status;
+                      if (status === 429) {
+                        const retryAfter = anyErr?.response?.data?.retryAfter;
+                        const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
+                        const hh = String(d.getHours()).padStart(2, "0");
+                        const mm = String(d.getMinutes()).padStart(2, "0");
+                        alert(`AI suggestion limit reached. Try again after ${hh}:${mm}`);
+                      }
+                    } finally {
+                      setAiLoading(false);
+                      setAiInfo(null);
+                    }
+                  }}
+                >
+                  Regenerate
+                </button>
+              )}
             </div>
           </div>
         </div>
