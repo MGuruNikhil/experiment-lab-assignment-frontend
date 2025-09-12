@@ -42,16 +42,16 @@ export default function DashboardPage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-				<p className="text-gray-700">Loading...</p>
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 p-4">
+				<p className="text-gray-700 dark:text-slate-200">Loading...</p>
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-				<div className="w-full max-w-md bg-white border border-gray-200 rounded-lg p-6 shadow-sm text-center">
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 p-4">
+				<div className="w-full max-w-md bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-6 shadow-sm text-center">
 					<p className="text-red-600 mb-4">{error}</p>
 					<button onClick={handleLogout} className="rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-black">Go to Login</button>
 				</div>
