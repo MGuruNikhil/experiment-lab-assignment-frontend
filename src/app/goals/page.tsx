@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/auth";
 
 type GoalListItem = {
@@ -17,6 +18,7 @@ type GoalListItem = {
 };
 
 export default function GoalsPage() {
+  const search = useSearchParams();
   const [goals, setGoals] = useState<GoalListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +74,22 @@ export default function GoalsPage() {
     };
   }, [goals]);
 
+  const filtered = useMemo(() => {
+    const status = (search.get("status") || "").toLowerCase();
+    if (!status) return goals;
+    if (status === "completed") {
+      return goals.filter((g) => (progressMap[g.id] ?? 0) >= 100);
+    }
+    if (status === "active") {
+      return goals.filter((g) => (progressMap[g.id] ?? 0) < 100);
+    }
+    return goals;
+  }, [goals, progressMap, search]);
+
   const content = useMemo(() => {
     if (loading) return <div className="p-6">Loading goals...</div>;
     if (error) return <div className="p-6 text-red-600">{error}</div>;
-    if (goals.length === 0)
+    if (filtered.length === 0)
       return (
         <div className="p-6">
           <div className="mb-4">No goals yet.</div>
@@ -93,30 +107,50 @@ export default function GoalsPage() {
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {goals.map((g) => (
-            <Link key={g.id} href={`/goals/${g.id}`} className="block border rounded p-4 hover:shadow bg-white dark:bg-slate-800">
-              <div className="font-medium text-lg text-slate-900 dark:text-slate-50">{g.title}</div>
-              <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                Duration: {g.suggestedWeeks ?? "—"} weeks · {g.chunking ?? "—"}
-              </div>
-              <div className="mt-3">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-900 dark:text-slate-50">Progress</span>
-                  <span className="text-slate-900 dark:text-slate-50">{progressMap[g.id] ?? 0}%</span>
+          {filtered.map((g) => (
+            <div key={g.id} className="border rounded p-4 hover:shadow bg-white dark:bg-slate-800">
+              <Link href={`/goals/${g.id}`} className="block">
+                <div className="font-medium text-lg text-slate-900 dark:text-slate-50">{g.title}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                  Duration: {g.suggestedWeeks ?? "—"} weeks · {g.chunking ?? "—"}
                 </div>
-                <div className="w-full h-2 bg-gray-200 rounded">
-                  <div
-                    className="h-2 bg-green-500 rounded"
-                    style={{ width: `${progressMap[g.id] ?? 0}%` }}
-                  />
+                <div className="mt-3">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-slate-900 dark:text-slate-50">Progress</span>
+                    <span className="text-slate-900 dark:text-slate-50">{progressMap[g.id] ?? 0}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded">
+                    <div className="h-2 bg-green-500 rounded" style={{ width: `${progressMap[g.id] ?? 0}%` }} />
+                  </div>
                 </div>
+              </Link>
+              <div className="mt-3 flex gap-2">
+                <Link href={`/goals/${g.id}/edit`} className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600">
+                  Edit
+                </Link>
+                <button
+                  className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-200"
+                  onClick={async () => {
+                    const yes = window.confirm(`Delete goal "${g.title}"? This will remove all journeys and milestones.`);
+                    if (!yes) return;
+                    try {
+                      await apiClient.delete(`/api/goals/${g.id}`);
+                      setGoals((prev) => prev.filter((x) => x.id !== g.id));
+                    } catch (e: unknown) {
+                      const err = e as { response?: { data?: { error?: string } }; message?: string };
+                      setError(err.response?.data?.error ?? err.message ?? "Failed to delete goal");
+                    }
+                  }}
+                >
+                  Delete
+                </button>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </div>
     );
-  }, [loading, error, goals, progressMap]);
+  }, [loading, error, filtered, progressMap]);
 
   return content;
 }

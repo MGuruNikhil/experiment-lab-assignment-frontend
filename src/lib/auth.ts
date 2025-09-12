@@ -61,4 +61,34 @@ export interface AxiosErrorResponse {
 
 export { apiClient };
 
+// Redirect to login on 401/Unauthorized globally (client-side only)
+apiClient.interceptors.response.use(
+	(res) => res,
+	(error) => {
+		try {
+			const status: number | undefined = error?.response?.status;
+			const message: string = String(error?.response?.data?.message || error?.message || "");
+			const cfg: any = error?.config || {};
+			const url: string = typeof cfg?.url === "string" ? cfg.url : "";
+
+			// Skip redirect for auth endpoints or when explicitly requested
+			const skip: boolean = Boolean(cfg?.skipAuthRedirect) || url.startsWith("/api/auth/");
+
+			if ((status === 401 || /unauthorized/i.test(message)) && !skip) {
+				clearStoredToken();
+				if (typeof window !== "undefined") {
+					const here = window.location.pathname + window.location.search;
+					const next = encodeURIComponent(here);
+					if (window.location.pathname !== "/login") {
+						window.location.replace(`/login?next=${next}`);
+					}
+				}
+			}
+		} catch {
+			// no-op
+		}
+		return Promise.reject(error);
+	},
+);
+
 

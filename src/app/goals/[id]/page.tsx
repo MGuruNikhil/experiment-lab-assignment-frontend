@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/auth";
 
 type Milestone = {
@@ -18,6 +18,7 @@ type Milestone = {
 export default function GoalDetailPage() {
   const params = useParams<{ id: string }>();
   const goalId = params?.id as string;
+  const router = useRouter();
   type Journey = { id: string; title?: string | null; milestones?: Milestone[] };
   type Goal = { id: string; title: string; description?: string | null; journeys?: Journey[] };
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -60,6 +61,8 @@ export default function GoalDetailPage() {
   const [previewProvider, setPreviewProvider] = useState<"openrouter" | "heuristic" | null>(null);
   const [previewAccepting, setPreviewAccepting] = useState<boolean>(false);
   const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<boolean>(false);
+  const [suggestModalOpen, setSuggestModalOpen] = useState<boolean>(false);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -189,7 +192,55 @@ export default function GoalDetailPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="rounded-xl border bg-white dark:bg-slate-900 shadow-sm p-5">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{goal.title}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{goal.title}</h1>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+              disabled={deleting}
+              onClick={() => router.push(`/goals/${goalId}/edit`)}
+            >
+              Edit
+            </button>
+            <button
+              className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-200 disabled:opacity-60"
+              disabled={deleting}
+              aria-busy={deleting}
+              onClick={async () => {
+                if (deleting) return;
+                const yes = window.confirm("Delete this goal and all its data?");
+                if (!yes) return;
+                setDeleting(true);
+                try {
+                  await apiClient.delete(`/api/goals/${goalId}`);
+                  router.push("/goals");
+                } catch (e) {
+                  // Optional: surface error
+                  alert("Failed to delete. Please try again.");
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                  Deleting...
+                </span>
+              ) : (
+                "Delete"
+              )}
+            </button>
+          </div>
+        </div>
         {goal.description && (
           <div className="text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{goal.description}</div>
         )}
@@ -208,6 +259,7 @@ export default function GoalDetailPage() {
               try {
                 const h = await apiClient.post(`/api/goals/${goalId}/suggest`, { useLLM: false });
                 setHeuristic(h.data as SuggestionJourney);
+                setSuggestModalOpen(true);
                 if (useAI) {
                   setSuggestInfo("Generating AI suggestion...");
                   try {
@@ -360,75 +412,84 @@ export default function GoalDetailPage() {
         </div>
       ))}
 
-      {(heuristic || aiSuggestion) && (
-        <div className="border rounded p-4">
-          <div className="font-medium text-lg">Suggested Journey</div>
-          <div className="text-sm text-slate-600">
-            {(aiSuggestion ?? heuristic)?.durationWeeks} weeks · {(aiSuggestion ?? heuristic)?.chunking}
-          </div>
-          <ol className="mt-3 list-decimal pl-6 space-y-2">
-            {(aiSuggestion ?? heuristic)?.milestones?.map((m, idx: number) => (
-              <li key={idx}>
-                <div className="font-medium">{m.title}</div>
-                <div className="text-sm text-slate-600">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
-                {m.description && <div className="text-sm text-slate-700">{m.description}</div>}
-              </li>
-            ))}
-          </ol>
-          <div className="flex gap-2 mt-3">
-            <button
-              className="px-3 py-2 text-sm bg-green-600 text-white rounded"
-              onClick={async () => {
-                try {
-                  if (aiSuggestion?.journeyId) {
-                    await load();
-                    return;
-                  }
-                  const current = (aiSuggestion ?? heuristic)!;
-                  const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
-                    title: current.journeyTitle,
-                    meta: { generated: aiSuggestion ? "openrouter" : "heuristic" },
-                  });
-                  for (const [i, m] of (current.milestones ?? []).entries()) {
-                    await apiClient.post(`/api/journeys/${journey.id}/milestones`, {
-                      title: m.title,
-                      description: m.description,
-                      orderIndex: i,
-                      startWeek: m.startWeek,
-                      endWeek: m.endWeek,
-                      estimatedHours: m.estimatedHours,
+      {suggestModalOpen && (heuristic || aiSuggestion) && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-lg text-slate-900 dark:text-slate-50">Suggested Journey</div>
+              <button className="px-2 py-1 text-sm border rounded" onClick={() => setSuggestModalOpen(false)}>Close</button>
+            </div>
+            {suggestInfo && <div className="text-sm text-indigo-600 mt-3">{suggestInfo}</div>}
+            {suggestWarning && <div className="text-sm text-amber-600 mt-2">{suggestWarning}</div>}
+            <div className="text-sm text-slate-600 mt-2">
+              {(aiSuggestion ?? heuristic)?.durationWeeks} weeks · {(aiSuggestion ?? heuristic)?.chunking}
+            </div>
+            <ol className="mt-3 list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
+              {(aiSuggestion ?? heuristic)?.milestones?.map((m, idx: number) => (
+                <li key={idx}>
+                  <div className="font-medium">{m.title}</div>
+                  <div className="text-sm text-slate-600">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
+                  {m.description && <div className="text-sm text-slate-700">{m.description}</div>}
+                </li>
+              ))}
+            </ol>
+            <div className="flex gap-2 mt-4">
+              <button
+                className="px-3 py-2 text-sm bg-green-600 text-white rounded"
+                onClick={async () => {
+                  try {
+                    if (aiSuggestion?.journeyId) {
+                      await load();
+                      setSuggestModalOpen(false);
+                      return;
+                    }
+                    const current = (aiSuggestion ?? heuristic)!;
+                    const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
+                      title: current.journeyTitle,
+                      meta: { generated: aiSuggestion ? "openrouter" : "heuristic" },
                     });
+                    for (const [i, m] of (current.milestones ?? []).entries()) {
+                      await apiClient.post(`/api/journeys/${journey.id}/milestones`, {
+                        title: m.title,
+                        description: m.description,
+                        orderIndex: i,
+                        startWeek: m.startWeek,
+                        endWeek: m.endWeek,
+                        estimatedHours: m.estimatedHours,
+                      });
+                    }
+                    await load();
+                    setSuggestModalOpen(false);
+                  } catch {
+                    // ignore
                   }
-                  await load();
-                } catch {
-                  // ignore
-                }
-              }}
-            >
-              Accept
-            </button>
-            <button
-              className="px-3 py-2 text-sm border rounded"
-              onClick={async () => {
-                try {
-                  const resp = await apiClient.post(`/api/goals/${goalId}/suggest`, { useLLM: true });
-                  const data = resp.data as Partial<SuggestionJourney>;
-                  if (data?.journeyTitle && data?.milestones) setAiSuggestion(data as SuggestionJourney);
-                } catch (e: unknown) {
-                  const anyErr = e as { response?: { status?: number; data?: { retryAfter?: number } } };
-                  const status = anyErr?.response?.status;
-                  if (status === 429) {
-                    const retryAfter = anyErr?.response?.data?.retryAfter;
-                    const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
-                    const hh = String(d.getHours()).padStart(2, "0");
-                    const mm = String(d.getMinutes()).padStart(2, "0");
-                    alert(`AI suggestion limit reached. Try again after ${hh}:${mm}`);
+                }}
+              >
+                Accept
+              </button>
+              <button
+                className="px-3 py-2 text-sm border rounded"
+                onClick={async () => {
+                  try {
+                    const resp = await apiClient.post(`/api/goals/${goalId}/suggest`, { useLLM: true });
+                    const data = resp.data as Partial<SuggestionJourney>;
+                    if (data?.journeyTitle && data?.milestones) setAiSuggestion(data as SuggestionJourney);
+                  } catch (e: unknown) {
+                    const anyErr = e as { response?: { status?: number; data?: { retryAfter?: number } } };
+                    const status = anyErr?.response?.status;
+                    if (status === 429) {
+                      const retryAfter = anyErr?.response?.data?.retryAfter;
+                      const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
+                      const hh = String(d.getHours()).padStart(2, "0");
+                      const mm = String(d.getMinutes()).padStart(2, "0");
+                      alert(`AI suggestion limit reached. Try again after ${hh}:${mm}`);
+                    }
                   }
-                }
-              }}
-            >
-              Regenerate
-            </button>
+                }}
+              >
+                Regenerate
+              </button>
+            </div>
           </div>
         </div>
       )}

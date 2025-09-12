@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { storeToken, apiClient, AxiosErrorResponse } from "@/lib/auth";
 
@@ -11,6 +11,18 @@ export default function RegisterPage() {
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// Read ?next= from URL (client only)
+	const nextPath = useMemo(() => {
+		if (typeof window === "undefined") return null;
+		try {
+			const url = new URL(window.location.href);
+			const n = url.searchParams.get("next");
+			return n && n.startsWith("/") ? n : null;
+		} catch {
+			return null;
+		}
+	}, []);
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -24,7 +36,7 @@ export default function RegisterPage() {
 			});
 			if (response.data?.accessToken) {
 				storeToken(response.data.accessToken);
-				router.push("/dashboard");
+				router.push(nextPath || "/dashboard");
 			} else {
 				router.push("/login");
 			}
