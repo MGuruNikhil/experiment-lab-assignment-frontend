@@ -38,7 +38,7 @@ export default function DashboardPage() {
 				setMetrics(analyticsRes.data);
 			} catch (err: unknown) {
 				const axiosErr = err as AxiosErrorResponse;
-				const errorMessage = axiosErr?.response?.data?.message || (axiosErr as any)?.response?.data?.error || axiosErr?.message || "Failed to load";
+				const errorMessage = axiosErr?.response?.data?.message || axiosErr?.response?.data?.error || axiosErr?.message || "Failed to load";
 				setError(errorMessage);
 			} finally {
 				setLoading(false);
@@ -51,8 +51,8 @@ export default function DashboardPage() {
 		router.replace("/login");
 	}
 
-		// Prepare chart data and memoized drawing BEFORE any early returns
-		const timeseries = metrics?.goalsTimeseries ?? [];
+	// Prepare chart data and memoized drawing BEFORE any early returns
+	const timeseries = useMemo(() => metrics?.goalsTimeseries ?? [], [metrics]);
 		const maxY = useMemo(() => {
 			const maxVal = Math.max(1, ...timeseries.map((t) => Math.max(t.createdCount, t.completedCount)));
 			return maxVal;
@@ -119,28 +119,28 @@ export default function DashboardPage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 p-4">
-				<p className="text-gray-700 dark:text-slate-200">Loading...</p>
+			<div className="min-h-screen flex items-center justify-center bg-ctp-base p-4">
+				<p className="text-ctp-subtext0">Loading...</p>
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 p-4">
-				<div className="w-full max-w-md bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-6 shadow-sm text-center">
-					<p className="text-red-600 mb-4">{error}</p>
-					<button onClick={handleLogout} className="rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-black">Go to Login</button>
+			<div className="min-h-screen flex items-center justify-center bg-ctp-base p-4">
+				<div className="w-full max-w-md bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-6 shadow-sm text-center">
+					<p className="text-ctp-red-600 mb-4">{error}</p>
+					<button onClick={handleLogout} className="rounded-md bg-ctp-blue-600 px-4 py-2 text-ctp-base hover:bg-ctp-blue-700">Go to Login</button>
 				</div>
 			</div>
 		);
 	}
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-6">
+		<div className="min-h-screen bg-ctp-base p-6">
 			<div className="max-w-5xl mx-auto space-y-6">
 				<div className="flex items-center justify-between">
-					<h1 className="text-2xl font-semibold text-gray-900 dark:text-slate-50">{user ? `Welcome ${user.name}` : "Dashboard"}</h1>
-					<button onClick={handleLogout} className="rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-black">Logout</button>
+					<h1 className="text-2xl font-semibold text-ctp-text">{user ? `Welcome ${user.name}` : "Dashboard"}</h1>
+					<button onClick={handleLogout} className="rounded-md bg-ctp-blue-600 px-4 py-2 text-ctp-base hover:bg-ctp-blue-700">Logout</button>
 				</div>
 
 				{/* Metric cards */}
@@ -153,8 +153,8 @@ export default function DashboardPage() {
 				</div>
 
 				{/* Chart */}
-				<div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4">
-					<div className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Goals per week</div>
+				<div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-4">
+					<div className="text-sm font-medium text-ctp-subtext0 mb-2">Goals per week</div>
 					<div className="overflow-x-auto">{chart}</div>
 				</div>
 			</div>
@@ -164,10 +164,10 @@ export default function DashboardPage() {
 
 function MetricCard({ title, value, href }: { title: string; value: string | number; href: string }) {
 	return (
-		<Link href={href} className="block bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 hover:shadow">
-			<div className="text-xs uppercase tracking-wide text-gray-500 dark:text-slate-400">{title}</div>
-			<div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-slate-50">{value}</div>
-			<div className="mt-2 text-xs text-blue-600">View details →</div>
+		<Link href={href} className="block bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-4 hover:shadow-sm">
+			<div className="text-xs uppercase tracking-wide text-ctp-subtext0">{title}</div>
+			<div className="mt-2 text-2xl font-semibold text-ctp-text">{value}</div>
+			<div className="mt-2 text-xs text-ctp-blue-700">View details →</div>
 		</Link>
 	);
 }

@@ -173,11 +173,11 @@ export default function GoalDetailPage() {
   }
 
   function progressColor(p: number): string {
-    if (p >= 100) return "bg-emerald-600";
-    if (p >= 67) return "bg-indigo-600";
-    if (p >= 34) return "bg-amber-500";
-    if (p > 0) return "bg-rose-500";
-    return "bg-slate-300";
+  if (p >= 100) return "bg-ctp-green-700";
+  if (p >= 67) return "bg-ctp-blue-700";
+  if (p >= 34) return "bg-ctp-yellow-600";
+  if (p > 0) return "bg-ctp-rosewater-600";
+  return "bg-ctp-surface2";
   }
 
   function toggleDesc(id: string) {
@@ -185,25 +185,25 @@ export default function GoalDetailPage() {
   }
 
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
-  if (!goal) return <div className="p-6">Not found</div>;
+  if (loading) return <div className="p-6 text-ctp-subtext0">Loading...</div>;
+  if (error) return <div className="p-6 text-ctp-red-600">{error}</div>;
+  if (!goal) return <div className="p-6 text-ctp-subtext0">Not found</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="rounded-xl border bg-white dark:bg-slate-900 shadow-sm p-5">
+  <div className="p-6 space-y-6 bg-ctp-base">
+    <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{goal.title}</h1>
+      <h1 className="text-2xl font-semibold text-ctp-text">{goal.title}</h1>
           <div className="flex gap-2">
             <button
-              className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+        className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
               disabled={deleting}
               onClick={() => router.push(`/goals/${goalId}/edit`)}
             >
               Edit
             </button>
             <button
-              className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-200 disabled:opacity-60"
+        className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-rosewater-100/60 text-ctp-rosewater-700 hover:bg-ctp-rosewater-200/60 disabled:opacity-60"
               disabled={deleting}
               aria-busy={deleting}
               onClick={async () => {
@@ -214,7 +214,7 @@ export default function GoalDetailPage() {
                 try {
                   await apiClient.delete(`/api/goals/${goalId}`);
                   router.push("/goals");
-                } catch (e) {
+                } catch (_e) {
                   // Optional: surface error
                   alert("Failed to delete. Please try again.");
                   setDeleting(false);
@@ -242,7 +242,7 @@ export default function GoalDetailPage() {
           </div>
         </div>
         {goal.description && (
-          <div className="text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{goal.description}</div>
+          <div className="text-ctp-subtext0 mt-1 leading-relaxed">{goal.description}</div>
         )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-2 text-sm">
@@ -250,7 +250,7 @@ export default function GoalDetailPage() {
             Use AI (OpenRouter)
           </label>
           <button
-            className="px-3 py-2 text-sm border rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-60"
+            className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2 disabled:opacity-60"
             disabled={suggestLoading}
             onClick={async () => {
               setSuggestWarning(null);
@@ -317,22 +317,22 @@ export default function GoalDetailPage() {
             History
           </button>
         </div>
-        {suggestInfo && <div className="text-sm text-indigo-600 mt-2">{suggestInfo}</div>}
-        {suggestWarning && <div className="text-sm text-amber-600 mt-2">{suggestWarning}</div>}
+        {suggestInfo && <div className="text-sm text-ctp-blue-700 mt-2">{suggestInfo}</div>}
+        {suggestWarning && <div className="text-sm text-ctp-yellow-700 mt-2">{suggestWarning}</div>}
         <div className="mt-3">
           <div className="flex items-center justify-between text-sm mb-1">
-            <span className="text-slate-700 dark:text-slate-300">Overall Progress</span>
-            <span className="font-medium text-slate-900 dark:text-slate-50">{overallProgress}%</span>
+            <span className="text-ctp-subtext0">Overall Progress</span>
+            <span className="font-medium text-ctp-text">{overallProgress}%</span>
           </div>
-          <div className="w-full h-2 bg-gray-200 dark:bg-slate-700 rounded">
+          <div className="w-full h-2 bg-ctp-surface1 rounded">
             <div className={`h-2 rounded ${progressColor(overallProgress)}`} style={{ width: `${overallProgress}%` }} />
           </div>
         </div>
       </div>
 
       {goal.journeys?.map((j) => (
-        <div key={j.id} className="rounded-xl border bg-white dark:bg-slate-900 shadow-sm p-5">
-          <div className="font-semibold text-lg text-slate-900 dark:text-slate-50">{j.title ?? "Journey"}</div>
+        <div key={j.id} className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
+          <div className="font-semibold text-lg text-ctp-text">{j.title ?? "Journey"}</div>
           <ol className="mt-4 grid gap-3 sm:grid-cols-2">
             {j.milestones?.map((m: Milestone) => {
               const isExpanded = expandedDesc[m.id] ?? false;
@@ -341,31 +341,31 @@ export default function GoalDetailPage() {
               return (
                 <li
                   key={m.id}
-                  className="relative rounded-lg border shadow-sm hover:shadow-md transition bg-white dark:bg-slate-800 p-4"
+                  className="relative rounded-lg border border-ctp-overlay1/40 shadow-sm hover:shadow-md transition bg-ctp-surface0 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-900 dark:text-slate-50 truncate">{m.title}</div>
+                      <div className="font-medium text-ctp-text truncate">{m.title}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ctp-surface1 text-ctp-subtext0">
                           Weeks {m.startWeek ?? "?"}-{m.endWeek ?? "?"}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-ctp-surface1 text-ctp-subtext0">
                           ~{m.estimatedHours ?? "?"}h
                         </span>
                       </div>
                     </div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-slate-50 whitespace-nowrap">{m.progress}%</div>
+                    <div className="text-sm font-medium text-ctp-text whitespace-nowrap">{m.progress}%</div>
                   </div>
-                  <div className="w-full h-2 bg-gray-200 dark:bg-slate-700 rounded mt-3">
+                  <div className="w-full h-2 bg-ctp-surface1 rounded mt-3">
                     <div className={`h-2 rounded ${progressColor(m.progress)}`} style={{ width: `${m.progress}%` }} />
                   </div>
                   {m.description && (
-                    <div className="mt-3 text-sm text-slate-700 dark:text-slate-200">
+                    <div className="mt-3 text-sm text-ctp-subtext0">
                       {shownDesc}
                       {hasLongDesc && (
                         <button
-                          className="ml-2 text-indigo-600 hover:underline"
+                          className="ml-2 text-ctp-blue-700 hover:underline"
                           onClick={() => toggleDesc(m.id)}
                         >
                           {isExpanded ? "Show less" : "Read more"}
@@ -375,7 +375,7 @@ export default function GoalDetailPage() {
                   )}
                   <div className="mt-3 flex gap-2">
                     <button
-                      className="px-3 py-1.5 text-xs sm:text-sm border rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600"
+                      className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
                       onClick={() => {
                         setEditing(m.id);
                         setEditProgress(m.progress);
@@ -385,8 +385,8 @@ export default function GoalDetailPage() {
                     </button>
                   </div>
                   {editing === m.id && (
-                    <div className="mt-3 p-3 border rounded bg-gray-50 dark:bg-slate-900">
-                      <label className="block text-sm font-medium text-slate-900 dark:text-slate-50">Progress: {editProgress}%</label>
+                    <div className="mt-3 p-3 border border-ctp-overlay1/40 rounded bg-ctp-surface1">
+                      <label className="block text-sm font-medium text-ctp-text">Progress: {editProgress}%</label>
                       <input
                         type="range"
                         min={0}
@@ -396,10 +396,10 @@ export default function GoalDetailPage() {
                         className="w-full"
                       />
                       <div className="flex gap-2 mt-2">
-                        <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => saveProgress(m.id)}>
+                        <button className="px-3 py-1 bg-ctp-blue-600 text-ctp-base rounded" onClick={() => saveProgress(m.id)}>
                           Save
                         </button>
-                        <button className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-50 rounded" onClick={() => setEditing(null)}>
+                        <button className="px-3 py-1 bg-ctp-surface1 text-ctp-text rounded" onClick={() => setEditing(null)}>
                           Cancel
                         </button>
                       </div>
@@ -414,28 +414,28 @@ export default function GoalDetailPage() {
 
       {suggestModalOpen && (heuristic || aiSuggestion) && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6" role="dialog" aria-modal="true">
+          <div className="bg-ctp-surface0 rounded shadow-lg max-w-2xl w-full p-6 border border-ctp-overlay1/40" role="dialog" aria-modal="true">
             <div className="flex items-center justify-between">
-              <div className="font-semibold text-lg text-slate-900 dark:text-slate-50">Suggested Journey</div>
-              <button className="px-2 py-1 text-sm border rounded" onClick={() => setSuggestModalOpen(false)}>Close</button>
+              <div className="font-semibold text-lg text-ctp-text">Suggested Journey</div>
+              <button className="px-2 py-1 text-sm border border-ctp-overlay1/50 rounded" onClick={() => setSuggestModalOpen(false)}>Close</button>
             </div>
-            {suggestInfo && <div className="text-sm text-indigo-600 mt-3">{suggestInfo}</div>}
-            {suggestWarning && <div className="text-sm text-amber-600 mt-2">{suggestWarning}</div>}
-            <div className="text-sm text-slate-600 mt-2">
+            {suggestInfo && <div className="text-sm text-ctp-blue-700 mt-3">{suggestInfo}</div>}
+            {suggestWarning && <div className="text-sm text-ctp-yellow-700 mt-2">{suggestWarning}</div>}
+            <div className="text-sm text-ctp-subtext0 mt-2">
               {(aiSuggestion ?? heuristic)?.durationWeeks} weeks · {(aiSuggestion ?? heuristic)?.chunking}
             </div>
             <ol className="mt-3 list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
               {(aiSuggestion ?? heuristic)?.milestones?.map((m, idx: number) => (
                 <li key={idx}>
-                  <div className="font-medium">{m.title}</div>
-                  <div className="text-sm text-slate-600">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
-                  {m.description && <div className="text-sm text-slate-700">{m.description}</div>}
+                  <div className="font-medium text-ctp-text">{m.title}</div>
+                  <div className="text-sm text-ctp-subtext0">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
+                  {m.description && <div className="text-sm text-ctp-subtext0">{m.description}</div>}
                 </li>
               ))}
             </ol>
             <div className="flex gap-2 mt-4">
               <button
-                className="px-3 py-2 text-sm bg-green-600 text-white rounded"
+                className="px-3 py-2 text-sm bg-ctp-green-600 text-ctp-base rounded"
                 onClick={async () => {
                   try {
                     if (aiSuggestion?.journeyId) {
@@ -468,7 +468,7 @@ export default function GoalDetailPage() {
                 Accept
               </button>
               <button
-                className="px-3 py-2 text-sm border rounded"
+                className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded"
                 onClick={async () => {
                   try {
                     const resp = await apiClient.post(`/api/goals/${goalId}/suggest`, { useLLM: true });
@@ -496,7 +496,7 @@ export default function GoalDetailPage() {
 
       {historyOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
+          <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggestion History</h2>
               <button className="px-3 py-1 text-sm border rounded" onClick={() => setHistoryOpen(false)}>Close</button>

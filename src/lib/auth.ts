@@ -54,6 +54,7 @@ export interface AxiosErrorResponse {
 	response?: {
 		data?: {
 			message?: string;
+	error?: string;
 		};
 	};
 	message?: string;
@@ -64,15 +65,15 @@ export { apiClient };
 // Redirect to login on 401/Unauthorized globally (client-side only)
 apiClient.interceptors.response.use(
 	(res) => res,
-	(error) => {
+		(error) => {
 		try {
 			const status: number | undefined = error?.response?.status;
 			const message: string = String(error?.response?.data?.message || error?.message || "");
-			const cfg: any = error?.config || {};
-			const url: string = typeof cfg?.url === "string" ? cfg.url : "";
+				const cfg = (error?.config ?? {}) as Partial<{ url?: string; skipAuthRedirect?: boolean }>;
+				const url: string = typeof cfg?.url === "string" ? cfg.url : "";
 
 			// Skip redirect for auth endpoints or when explicitly requested
-			const skip: boolean = Boolean(cfg?.skipAuthRedirect) || url.startsWith("/api/auth/");
+				const skip: boolean = Boolean(cfg?.skipAuthRedirect) || url.startsWith("/api/auth/");
 
 			if ((status === 401 || /unauthorized/i.test(message)) && !skip) {
 				clearStoredToken();

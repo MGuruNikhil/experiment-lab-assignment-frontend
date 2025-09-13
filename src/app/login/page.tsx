@@ -48,45 +48,45 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 p-4">
-			<div className="w-full max-w-md bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-6 shadow-sm">
-				<h1 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-slate-50">Login</h1>
-				{error && (
-					<div className="mb-4 text-sm text-red-600" role="alert">
+		<div className="min-h-screen flex items-center justify-center bg-ctp-base p-4">
+				<div className="w-full max-w-md bg-ctp-surface0 border border-ctp-overlay1/40 rounded-xl p-6 shadow-sm">
+					<h1 className="text-2xl font-semibold mb-6 text-ctp-text">Login</h1>
+					{error && (
+						<div className="mb-4 text-sm text-ctp-red-600" role="alert">
 						{error}
 					</div>
 				)}
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div>
-						<label className="block text-sm font-medium text-gray-700">Email</label>
+							<label className="block text-sm font-medium text-ctp-subtext0">Email</label>
 						<input
 							type="email"
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							required
-							className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 text-gray-900"
+								className="mt-1 block w-full rounded-md border border-ctp-overlay1/50 bg-ctp-base text-ctp-text shadow-sm focus-visible:outline-none focus:ring-2 focus:ring-ctp-blue-400 px-3 py-2"
 						/>
 					</div>
 					<div>
-						<label className="block text-sm font-medium text-gray-700">Password</label>
+							<label className="block text-sm font-medium text-ctp-subtext0">Password</label>
 						<input
 							type="password"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
 							required
-							className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 text-gray-900"
+								className="mt-1 block w-full rounded-md border border-ctp-overlay1/50 bg-ctp-base text-ctp-text shadow-sm focus-visible:outline-none focus:ring-2 focus:ring-ctp-blue-400 px-3 py-2"
 						/>
 					</div>
 					<button
 						type="submit"
 						disabled={loading}
-						className="w-full inline-flex justify-center rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-black disabled:opacity-50"
+							className="w-full inline-flex justify-center rounded-md bg-ctp-blue-600 px-4 py-2 text-ctp-base hover:bg-ctp-blue-700 disabled:opacity-50"
 					>
 						{loading ? "Signing in..." : "Login"}
 					</button>
 				</form>
-				<p className="mt-4 text-sm text-gray-600">
-					Don&apos;t have an account? <a href="/register" className="text-gray-900 underline">Register</a>
+					<p className="mt-4 text-sm text-ctp-subtext0">
+						Don&apos;t have an account? <a href="/register" className="text-ctp-blue-600 underline">Register</a>
 				</p>
 			</div>
 		</div>

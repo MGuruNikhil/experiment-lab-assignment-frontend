@@ -270,29 +270,29 @@ export default function CreateGoalPage() {
   }, [suggestion]);
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Create New Goal</h1>
-      {error && <div className="mb-4 text-red-600">{error}</div>}
+    <div className="p-6 max-w-2xl mx-auto bg-ctp-base">
+      <h1 className="text-2xl font-semibold mb-4 text-ctp-text">Create New Goal</h1>
+      {error && <div className="mb-4 text-ctp-red-600">{error}</div>}
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium">Title</label>
+          <label className="block text-sm font-medium text-ctp-subtext0">Title</label>
           <input
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Description</label>
+          <label className="block text-sm font-medium text-ctp-subtext0">Description</label>
           <textarea
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Complexity: {complexity}</label>
+          <label className="block text-sm font-medium text-ctp-subtext0">Complexity: {complexity}</label>
           <input
             type="range"
             min={1}
@@ -304,19 +304,19 @@ export default function CreateGoalPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium">Duration Weeks (optional)</label>
+            <label className="block text-sm font-medium text-ctp-subtext0">Duration Weeks (optional)</label>
             <input
               type="number"
               min={1}
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
               value={durationWeeks}
               onChange={(e) => setDurationWeeks(e.target.value === "" ? "" : Number(e.target.value))}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Chunking</label>
+            <label className="block text-sm font-medium text-ctp-subtext0">Chunking</label>
             <select
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
               value={chunking}
               onChange={(e) => setChunking(e.target.value === "biweekly" ? "biweekly" : "weekly")}
             >
@@ -332,67 +332,67 @@ export default function CreateGoalPage() {
           </label>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded"
+            className="px-4 py-2 bg-ctp-blue-600 text-ctp-base rounded"
             disabled={loading}
           >
             {loading ? "Creating..." : "Create Goal"}
           </button>
           {createdGoalId && (
-            <button type="button" className="px-3 py-2 text-sm border rounded" onClick={openHistory}>History</button>
+            <button type="button" className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded" onClick={openHistory}>History</button>
           )}
         </div>
       </form>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
+          <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggested Journey</h2>
+              <h2 className="text-xl font-semibold text-ctp-text">Suggested Journey</h2>
               <div className="flex items-center gap-2">
                 {suggestionSource && (
-                  <span className={`text-xs px-2 py-1 rounded ${suggestionSource === "ai" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200" : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                  <span className={`text-xs px-2 py-1 rounded ${suggestionSource === "ai" ? "bg-ctp-blue-100 text-ctp-blue-700" : "bg-ctp-surface1 text-ctp-subtext0"}`}>
                     {suggestionSource === "ai" ? "AI suggested" : "Heuristic"}
                   </span>
                 )}
                 {suggestionCached && (
-                  <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">Cached</span>
+                  <span className="text-xs px-2 py-1 rounded bg-ctp-yellow-100 text-ctp-yellow-700">Cached</span>
                 )}
               </div>
             </div>
             {aiLoading && (
               <div className="mb-4">
-                <div className="text-sm text-indigo-600 mb-2">{aiInfo ?? "Generating AI suggestion..."}</div>
+                <div className="text-sm text-ctp-blue-700 mb-2">{aiInfo ?? "Generating AI suggestion..."}</div>
                 <div className="animate-pulse space-y-2">
-                  <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
-                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-2/3" />
-                  <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+                  <div className="h-4 bg-ctp-surface1 rounded w-1/3" />
+                  <div className="h-3 bg-ctp-surface1 rounded w-2/3" />
+                  <div className="h-3 bg-ctp-surface1 rounded w-1/2" />
                 </div>
               </div>
             )}
-            {!aiLoading && aiInfo && <div className="text-sm text-indigo-600 mb-2">{aiInfo}</div>}
-            {aiWarning && <div className="text-sm text-amber-600 mb-2">{aiWarning}</div>}
+            {!aiLoading && aiInfo && <div className="text-sm text-ctp-blue-700 mb-2">{aiInfo}</div>}
+            {aiWarning && <div className="text-sm text-ctp-yellow-700 mb-2">{aiWarning}</div>}
             {suggestion && (
               <>
-                <div className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                <div className="text-sm text-ctp-subtext0 mb-4">
                   {suggestion.durationWeeks} weeks · {suggestion.chunking}
                 </div>
                 {diffNote && <div className="text-xs text-slate-500 mb-2">{diffNote}</div>}
                 <ol className="list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
                   {suggestion.milestones.map((m, idx) => (
                     <li key={`${idx}-${m.title}`}>
-                      <div className="font-medium text-slate-900 dark:text-slate-50">{m.title}</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-300">
+                      <div className="font-medium text-ctp-text">{m.title}</div>
+                      <div className="text-sm text-ctp-subtext0">
                         Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h
                       </div>
-                      {m.description && <div className="text-sm text-slate-700 dark:text-slate-200">{m.description}</div>}
+                      {m.description && <div className="text-sm text-ctp-subtext0">{m.description}</div>}
                     </li>
                   ))}
                 </ol>
               </>
             )}
             <div className="flex justify-end gap-3 mt-4">
-              <button className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-50 rounded" onClick={() => setShowModal(false)}>Close</button>
-              <button className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-60" onClick={acceptSuggestion} disabled={accepting || !suggestion}>
+              <button className="px-4 py-2 bg-ctp-surface1 text-ctp-text rounded" onClick={() => setShowModal(false)}>Close</button>
+              <button className="px-4 py-2 bg-ctp-green-600 text-ctp-base rounded disabled:opacity-60" onClick={acceptSuggestion} disabled={accepting || !suggestion}>
                 Accept Suggestion
               </button>
             </div>
@@ -402,10 +402,10 @@ export default function CreateGoalPage() {
 
       {historyOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
+          <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggestion History</h2>
-              <button className="px-3 py-1 text-sm border rounded" onClick={() => setHistoryOpen(false)}>Close</button>
+              <h2 className="text-xl font-semibold text-ctp-text">Suggestion History</h2>
+              <button className="px-3 py-1 text-sm border border-ctp-overlay1/50 rounded" onClick={() => setHistoryOpen(false)}>Close</button>
             </div>
             <div className="space-y-2 max-h-96 overflow-auto">
               {history.map((h) => {
@@ -413,7 +413,7 @@ export default function CreateGoalPage() {
                 return (
                   <div
                     key={h.id}
-                    className="border rounded p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                    className="border border-ctp-overlay1/40 rounded p-3 hover:bg-ctp-surface1 cursor-pointer"
                     onClick={() => {
                       const sug = parseSuggestionFromHistory(h.response);
                       if (sug) {
@@ -439,19 +439,19 @@ export default function CreateGoalPage() {
                       }
                     }}
                   >
-                    <div className="text-sm">{h.provider} · {new Date(h.createdAt).toLocaleString()}</div>
+                    <div className="text-sm text-ctp-subtext0">{h.provider} · {new Date(h.createdAt).toLocaleString()}</div>
                     {h.provider === "openrouter" && title && (
-                      <div className="text-sm text-slate-700 dark:text-slate-200">{title}</div>
+                      <div className="text-sm text-ctp-subtext0">{title}</div>
                     )}
                   </div>
                 );
               })}
-              {history.length === 0 && <div className="text-sm text-slate-500">No suggestions yet.</div>}
+              {history.length === 0 && <div className="text-sm text-ctp-subtext0">No suggestions yet.</div>}
             </div>
             <div className="flex justify-end mt-3">
               {createdGoalId && (
         <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded"
+                  className="px-4 py-2 bg-ctp-blue-600 text-ctp-base rounded"
                   onClick={async () => {
                     try {
                       setAiLoading(true);

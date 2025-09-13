@@ -1,26 +1,23 @@
 @import "tailwindcss";
+/* Import Catppuccin palette. Latte is the light flavour; including a dark flavour is optional. */
+@import "@catppuccin/tailwindcss/mocha.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Base element tweaks that complement the Latte theme */
+html, body {
+  height: 100%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Improve focus visibility */
+:where(a, button, input, select, textarea) {
+  outline-color: oklch(65% 0.12 var(--ctp-blue-h));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Subtle scrollbar on large lists */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+*::-webkit-scrollbar-thumb {
+  background-color: oklch(92% 0.02 var(--ctp-overlay1-h));
+  border-radius: 9999px;
 }

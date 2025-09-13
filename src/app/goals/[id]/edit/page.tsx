@@ -85,26 +85,26 @@ export default function EditGoalPage() {
     }
   }
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) return <div className="p-6 text-ctp-subtext0">Loading...</div>;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Edit Goal</h1>
-      {error && <div className="mb-4 text-red-600">{error}</div>}
+    <div className="p-6 max-w-2xl mx-auto bg-ctp-base">
+      <h1 className="text-2xl font-semibold mb-4 text-ctp-text">Edit Goal</h1>
+      {error && <div className="mb-4 text-ctp-red-600">{error}</div>}
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium">Title</label>
+          <label className="block text-sm font-medium text-ctp-subtext0">Title</label>
           <input
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Description</label>
+          <label className="block text-sm font-medium text-ctp-subtext0">Description</label>
           <textarea
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional"
@@ -112,32 +112,32 @@ export default function EditGoalPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium">Complexity</label>
+            <label className="block text-sm font-medium text-ctp-subtext0">Complexity</label>
             <input
               type="number"
               min={1}
               max={10}
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
               value={complexity}
               onChange={(e) => setComplexity(e.target.value === "" ? "" : Number(e.target.value))}
               placeholder="1-10"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Duration Weeks</label>
+            <label className="block text-sm font-medium text-ctp-subtext0">Duration Weeks</label>
             <input
               type="number"
               min={1}
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
               value={suggestedWeeks}
               onChange={(e) => setSuggestedWeeks(e.target.value === "" ? "" : Number(e.target.value))}
               placeholder="Optional"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium">Chunking</label>
+            <label className="block text-sm font-medium text-ctp-subtext0">Chunking</label>
             <select
-              className="mt-1 w-full border rounded px-3 py-2"
+              className="mt-1 w-full border border-ctp-overlay1/50 bg-ctp-surface0 text-ctp-text rounded px-3 py-2"
               value={chunking}
               onChange={(e) => setChunking(e.target.value === "" ? "" : (e.target.value === "biweekly" ? "biweekly" : "weekly"))}
             >
@@ -148,10 +148,10 @@ export default function EditGoalPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60" disabled={saving}>
+          <button type="submit" className="px-4 py-2 bg-ctp-blue-600 text-ctp-base rounded disabled:opacity-60" disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </button>
-          <button type="button" className="px-4 py-2 bg-slate-100 dark:bg-slate-700 rounded" onClick={() => router.back()}>
+          <button type="button" className="px-4 py-2 bg-ctp-surface1 rounded" onClick={() => router.back()}>
             Cancel
           </button>
         </div>
