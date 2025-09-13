@@ -228,6 +228,13 @@ export default function GoalDetailPage() {
       await apiClient.put(`/api/milestones/${milestoneId}`, { progress: editProgress });
       setEditing(null);
       await load();
+      // Also refresh goal analytics after progress changes
+      try {
+        const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
+        setAnalytics(r.data);
+      } catch {
+        // ignore analytics refresh failure
+      }
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string; unmetDependencies?: Array<{ id: string; title: string }> } }; message?: string };
       const unmet = err.response?.data?.unmetDependencies ?? [];
@@ -685,46 +692,6 @@ export default function GoalDetailPage() {
                           Cancel
                         </button>
                       </div>
-
-                      {/* Analytics section */}
-                      <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-sm font-medium text-ctp-text">Analytics</div>
-                        </div>
-                        {analyticsLoading && <div className="text-ctp-subtext0">Loading analytics…</div>}
-                        {analyticsError && <div className="text-ctp-red-600">{analyticsError}</div>}
-                        {analytics && (
-                          <div className="space-y-6">
-                            <div>
-                              <div className="text-sm text-ctp-subtext0 mb-2">Completion per milestone</div>
-                              <BarChart
-                                items={analytics.completionPerMilestone.map((m) => ({ label: m.title.slice(0, 6), value: m.percentComplete }))}
-                              />
-                            </div>
-                            <div>
-                              <div className="text-sm text-ctp-subtext0 mb-2">Completions per week</div>
-                              <BarChart
-                                items={analytics.milestonesCompletedTimeline.map((t) => ({ label: t.weekStartISO.slice(5), value: t.completedCount }))}
-                              />
-                            </div>
-                            <div>
-                              <div className="text-sm text-ctp-subtext0 mb-2">Session Summaries</div>
-                              <SummaryList
-                                items={(analytics.sessionSummaries || []) as SummaryItem[]}
-                                generate={async (sessionId: string) => {
-                                  try {
-                                    await apiClient.post(`/api/tutor/sessions/${sessionId}/summary`, { force: true });
-                                    const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
-                                    setAnalytics(r.data);
-                                  } catch (e) {
-                                    alert("Failed to generate summary");
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   )}
                 </li>
@@ -733,6 +700,58 @@ export default function GoalDetailPage() {
           </ol>
         </div>
       ))}
+
+      {/* Goal Analytics - moved out of milestone editor to prevent overflow */}
+      <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-semibold text-lg text-ctp-text">Analytics</div>
+        </div>
+        {analyticsLoading && <div className="text-ctp-subtext0">Loading analytics…</div>}
+        {analyticsError && <div className="text-ctp-red-600">{analyticsError}</div>}
+        {analytics && (
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="min-w-0">
+                <div className="text-sm text-ctp-subtext0 mb-2">Completion per milestone</div>
+                <div className="rounded border border-ctp-overlay1/20 bg-ctp-surface1 p-3">
+                  <BarChart
+                    title="Completion per milestone"
+                    items={analytics.completionPerMilestone.map((m, idx) => ({ label: String(idx + 1), value: m.percentComplete }))}
+                  />
+                </div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm text-ctp-subtext0 mb-2">Completions per week</div>
+                <div className="rounded border border-ctp-overlay1/20 bg-ctp-surface1 p-3">
+                  <BarChart
+                    title="Completions per week"
+                    items={analytics.milestonesCompletedTimeline.map((t, idx) => ({ label: String(idx + 1), value: t.completedCount }))}
+                    color="#3b82f6"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-ctp-subtext0 mb-2">Session Summaries</div>
+              <div className="rounded border border-ctp-overlay1/20 bg-ctp-surface1 p-3 max-h-[420px] overflow-auto">
+                <SummaryList
+                  items={(analytics.sessionSummaries || []) as SummaryItem[]}
+                  generate={async (sessionId: string) => {
+                    try {
+                      await apiClient.post(`/api/tutor/sessions/${sessionId}/summary`, { force: true });
+                      const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
+                      setAnalytics(r.data);
+                    } catch (e) {
+                      alert("Failed to generate summary");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Recent Check-ins */}
       <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
@@ -771,7 +790,16 @@ export default function GoalDetailPage() {
   {/* Tutor Panel */}
   <TutorPanel
     open={tutorOpen}
-    onClose={() => setTutorOpen(false)}
+    onClose={async () => {
+      setTutorOpen(false);
+      // When closing tutor (after generating summary, etc.), refresh analytics
+      try {
+        const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
+        setAnalytics(r.data);
+      } catch {
+        // ignore
+      }
+    }}
     goalId={goalId}
     milestoneId={selectedMilestoneId ?? undefined}
     sessionId={activeSessionId ?? undefined}

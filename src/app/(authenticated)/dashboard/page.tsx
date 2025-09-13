@@ -7,6 +7,7 @@ import LogCheckinModal from "@/components/checkin/LogCheckinModal";
 import CheckinList from "@/components/checkin/CheckinList";
 import Link from "next/link";
 import MetricCard from "@/components/analytics/MetricCard";
+import DualBarChart from "@/components/analytics/DualBarChart";
 
 type MeResponse = { name: string; email: string };
 type Analytics = {
@@ -60,69 +61,7 @@ export default function DashboardPage() {
 
 	// Prepare chart data and memoized drawing BEFORE any early returns
 	const timeseries = useMemo(() => metrics?.goalsTimeseries ?? [], [metrics]);
-		const maxY = useMemo(() => {
-			const maxVal = Math.max(1, ...timeseries.map((t) => Math.max(t.createdCount, t.completedCount)));
-			return maxVal;
-		}, [timeseries]);
-
-		// Simple SVG dual-bar chart per week
-		const chart = useMemo(() => {
-			const width = 680;
-			const height = 220;
-			const padding = { top: 20, right: 20, bottom: 30, left: 30 };
-			const innerW = width - padding.left - padding.right;
-			const innerH = height - padding.top - padding.bottom;
-			const n = timeseries.length || 1;
-			const band = innerW / n;
-			const barW = band / 3;
-			function yScale(v: number) {
-				return innerH - (v / maxY) * innerH;
-			}
-			const bars = timeseries.map((t, i) => {
-				const x0 = padding.left + i * band;
-				const createdH = innerH - yScale(t.createdCount);
-				const completedH = innerH - yScale(t.completedCount);
-				const xCreated = x0 + band / 2 - barW - 2;
-				const xCompleted = x0 + band / 2 + 2;
-				return (
-					<g key={t.weekStart}>
-						<rect x={xCreated} y={padding.top + yScale(t.createdCount)} width={barW} height={createdH} fill="#3b82f6" />
-						<rect x={xCompleted} y={padding.top + yScale(t.completedCount)} width={barW} height={completedH} fill="#10b981" />
-					</g>
-				);
-			});
-			// Y axis ticks 0..maxY
-			const yTicks = Array.from({ length: Math.min(5, maxY) + 1 }).map((_, i) => {
-				const val = Math.round((i * maxY) / Math.min(5, maxY));
-				const y = padding.top + yScale(val);
-				return (
-					<g key={val}>
-						<line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e5e7eb" />
-						<text x={padding.left - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#6b7280">{val}</text>
-					</g>
-				);
-			});
-			// X labels: show every 3rd label to avoid clutter
-			const xLabels = timeseries.map((t, i) => (
-				<text key={t.weekStart} x={padding.left + i * band + band / 2} y={height - 8} textAnchor="middle" fontSize="9" fill="#6b7280">
-					{i % 3 === 0 ? t.weekStart.slice(5) : ""}
-				</text>
-			));
-			return (
-				<svg width={width} height={height} role="img" aria-label="Goals created vs completed per week">
-					<rect x={0} y={0} width={width} height={height} fill="white" className="dark:fill-slate-900" />
-					<g>{yTicks}</g>
-					<g>{bars}</g>
-					<g>{xLabels}</g>
-					<g>
-						<rect x={width - 180} y={8} width={10} height={10} fill="#3b82f6" />
-						<text x={width - 164} y={17} fontSize="12" fill="#374151">Created</text>
-						<rect x={width - 100} y={8} width={10} height={10} fill="#10b981" />
-						<text x={width - 84} y={17} fontSize="12" fill="#374151">Completed</text>
-					</g>
-				</svg>
-			);
-		}, [timeseries, maxY]);
+			const chartData = useMemo(() => timeseries.map((t, idx) => ({ label: String(idx + 1), a: t.createdCount, b: t.completedCount })), [timeseries]);
 
 	if (loading) {
 		return (
@@ -165,8 +104,13 @@ export default function DashboardPage() {
 
 				{/* Chart */}
 				<div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-4">
-					<div className="text-sm font-medium text-ctp-subtext0 mb-2">Goals per week</div>
-					<div className="overflow-x-auto">{chart}</div>
+								<div className="text-sm font-medium text-ctp-subtext0 mb-2">Goals per week</div>
+								<DualBarChart
+									title="Goals created vs completed per week"
+									legendA="Created"
+									legendB="Completed"
+									items={chartData}
+								/>
 				</div>
 
 				{/* Recent Check-ins */}
