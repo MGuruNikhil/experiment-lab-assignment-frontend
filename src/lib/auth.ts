@@ -3,7 +3,13 @@
 import axios, { AxiosInstance } from "axios";
 
 export const TOKEN_STORAGE_KEY = "auth_token";
-const BACKEND_URL = "http://localhost:4000";
+// Prefer environment variables in production; fall back to relative "/api" which
+// can be proxied via Next.js rewrites to your backend. For local dev, default to localhost.
+const BACKEND_URL =
+	process.env.NEXT_PUBLIC_API_BASE_URL ||
+	(typeof window === "undefined"
+		? process.env.API_BASE_URL || "http://localhost:4000"
+		: "/api");
 
 export function getStoredToken(): string | null {
 	if (typeof window === "undefined") return null;

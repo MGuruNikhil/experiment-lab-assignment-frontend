@@ -1,3 +1,20 @@
+## Deploying to Vercel
+
+This project includes a monorepo-friendly `vercel.json` at the repo root.
+
+On Vercel:
+
+- Project root: repository root
+- Framework preset: Next.js
+- Output directory: auto
+- Install command: auto
+- Build command: `npm run build` (Vercel will detect in `frontend/`)
+- Set Environment Variables (Project Settings → Environment Variables):
+	- `API_BASE_URL` → Your backend URL (e.g. `https://your-backend.example.com`)
+	- Optionally `NEXT_PUBLIC_API_BASE_URL` if you want to bypass rewrites and call directly from the browser
+
+The app uses Next.js rewrites so `/api/*` on the frontend will proxy to `API_BASE_URL`.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
