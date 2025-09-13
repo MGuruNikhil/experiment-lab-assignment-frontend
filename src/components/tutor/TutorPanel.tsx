@@ -10,7 +10,7 @@ type TutorMessage = {
   sender: "user" | "assistant" | "system";
   content: string;
   createdAt?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 };
 
 type TutorSession = {
@@ -81,9 +81,15 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
         } else {
           setMessages([]);
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (cancelled) return;
-        const errMsg = e?.response?.data?.error || e?.message || "Failed to open tutor";
+        let errMsg = "Failed to open tutor";
+        if (typeof e === "object" && e && "response" in (e as Record<string, unknown>)) {
+          const resp = (e as { response?: { data?: { error?: string } } }).response;
+          errMsg = resp?.data?.error ?? errMsg;
+        } else if (e instanceof Error) {
+          errMsg = e.message;
+        }
         setBootError(String(errMsg));
       } finally {
         if (!cancelled) setLoading(false);
@@ -125,9 +131,15 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
       );
       const assistant = res.data.assistantMessage;
       setMessages((prev) => [...prev, assistant]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Replace the optimistic user message with one that indicates failure, and try to refetch
-      const msg = e?.response?.data?.error || e?.message || "Failed to send";
+      let msg = "Failed to send";
+      if (typeof e === "object" && e && "response" in (e as Record<string, unknown>)) {
+        const resp = (e as { response?: { data?: { error?: string } } }).response;
+        msg = resp?.data?.error ?? msg;
+      } else if (e instanceof Error) {
+        msg = e.message;
+      }
       setMessages((prev) => prev.map((m) => (m.id === localId ? { ...m, content: `${content}\n\n(Delivery failed: ${String(msg)})` } : m)));
       // Sync with server to catch potential system messages
       try {

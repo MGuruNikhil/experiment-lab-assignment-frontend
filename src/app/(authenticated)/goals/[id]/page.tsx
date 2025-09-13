@@ -71,6 +71,7 @@ export default function GoalDetailPage() {
   const [askBusyId, setAskBusyId] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [tutorPlaceholder, setTutorPlaceholder] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -165,6 +166,8 @@ export default function GoalDetailPage() {
   }, [milestones]);
 
   async function saveProgress(milestoneId: string) {
+    if (savingId) return; // prevent parallel saves
+    setSavingId(milestoneId);
     try {
       await apiClient.put(`/api/milestones/${milestoneId}`, { progress: editProgress });
       setEditing(null);
@@ -177,6 +180,8 @@ export default function GoalDetailPage() {
         return;
       }
       setError(err.response?.data?.error ?? err.message ?? "Failed to save");
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -222,7 +227,7 @@ export default function GoalDetailPage() {
                 try {
                   await apiClient.delete(`/api/goals/${goalId}`);
                   router.push("/goals");
-                } catch (_e) {
+                } catch (_err) {
                   // Optional: surface error
                   alert("Failed to delete. Please try again.");
                   setDeleting(false);
@@ -341,8 +346,11 @@ export default function GoalDetailPage() {
             <span className="text-ctp-subtext0">Overall Progress</span>
             <span className="font-medium text-ctp-text">{overallProgress}%</span>
           </div>
-          <div className="w-full h-2 bg-ctp-surface1 rounded">
-            <div className={`h-2 rounded ${progressColor(overallProgress)}`} style={{ width: `${overallProgress}%` }} />
+          <div className="w-full h-2 bg-ctp-surface1 rounded overflow-hidden">
+            <div
+              className={`h-2 rounded ${progressColor(overallProgress)} transition-all duration-300 ease-out`}
+              style={{ width: `${overallProgress}%` }}
+            />
           </div>
         </div>
       </div>
@@ -374,8 +382,11 @@ export default function GoalDetailPage() {
                     </div>
                     <div className="text-sm font-medium text-ctp-text whitespace-nowrap">{m.progress}%</div>
                   </div>
-                  <div className="w-full h-2 bg-ctp-surface1 rounded mt-3">
-                    <div className={`h-2 rounded ${progressColor(m.progress)}`} style={{ width: `${m.progress}%` }} />
+                  <div className="w-full h-2 bg-ctp-surface1 rounded mt-3 overflow-hidden">
+                    <div
+                      className={`h-2 rounded ${progressColor(m.progress)} transition-all duration-300 ease-out`}
+                      style={{ width: `${m.progress}%` }}
+                    />
                   </div>
                   {m.description && (
                     <div className="mt-3 text-sm text-ctp-subtext0">
@@ -426,8 +437,14 @@ export default function GoalDetailPage() {
                           setActiveSessionId(sessionId);
                           setSelectedMilestoneId(m.id);
                           setTutorOpen(true);
-                        } catch (e: any) {
-                          const msg = e?.response?.data?.error || e?.message || "Failed to open tutor";
+                        } catch (e: unknown) {
+                          let msg = "Failed to open tutor";
+                          if (typeof e === "object" && e && "response" in (e as Record<string, unknown>)) {
+                            const resp = (e as { response?: { data?: { error?: string } } }).response;
+                            msg = resp?.data?.error ?? msg;
+                          } else if (e instanceof Error) {
+                            msg = e.message;
+                          }
                           alert(String(msg));
                         } finally {
                           setAskBusyId(null);
@@ -439,20 +456,120 @@ export default function GoalDetailPage() {
                   </div>
                   {editing === m.id && (
                     <div className="mt-3 p-3 border border-ctp-overlay1/40 rounded bg-ctp-surface1">
-                      <label className="block text-sm font-medium text-ctp-text">Progress: {editProgress}%</label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={editProgress}
-                        onChange={(e) => setEditProgress(Number(e.target.value))}
-                        className="w-full"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button className="px-3 py-1 bg-ctp-blue-600 text-ctp-base rounded" onClick={() => saveProgress(m.id)}>
-                          Save
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="block text-sm font-medium text-ctp-text">Update Progress</label>
+                        <span
+                          className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full ${
+                            editProgress >= 100
+                              ? "bg-ctp-green-700 text-ctp-base"
+                              : editProgress >= 67
+                              ? "bg-ctp-blue-700 text-ctp-base"
+                              : editProgress >= 34
+                              ? "bg-ctp-yellow-600 text-ctp-base"
+                              : editProgress > 0
+                              ? "bg-ctp-rosewater-600 text-ctp-base"
+                              : "bg-ctp-surface2 text-ctp-subtext0"
+                          }`}
+                        >
+                          {editProgress}%
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={editProgress}
+                          onChange={(e) => setEditProgress(Number(e.target.value))}
+                          className="w-full"
+                          aria-label="Progress slider"
+                        />
+                        <div className="mt-1 flex justify-between text-[10px] text-ctp-subtext0">
+                          <span>0</span>
+                          <span>25</span>
+                          <span>50</span>
+                          <span>75</span>
+                          <span>100</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 w-full h-2 bg-ctp-surface2 rounded overflow-hidden">
+                        <div
+                          className={`h-2 ${progressColor(editProgress)} transition-all duration-300 ease-out`}
+                          style={{ width: `${editProgress}%` }}
+                        />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className="px-2 py-1 text-xs border border-ctp-overlay1/40 rounded hover:bg-ctp-surface2"
+                          onClick={() => setEditProgress(0)}
+                        >
+                          Set 0%
                         </button>
-                        <button className="px-3 py-1 bg-ctp-surface1 rounded" onClick={() => setEditing(null)}>
+                        <button
+                          className="px-2 py-1 text-xs border border-ctp-overlay1/40 rounded hover:bg-ctp-surface2"
+                          onClick={() => setEditProgress((p) => Math.min(100, p + 10))}
+                        >
+                          +10%
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs border border-ctp-overlay1/40 rounded hover:bg-ctp-surface2"
+                          onClick={() => setEditProgress((p) => Math.max(0, p - 10))}
+                        >
+                          -10%
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs border border-ctp-overlay1/40 rounded hover:bg-ctp-surface2"
+                          onClick={() => setEditProgress(100)}
+                        >
+                          Set 100%
+                        </button>
+                        <div className="ml-auto inline-flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={editProgress}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (!Number.isNaN(v)) setEditProgress(Math.max(0, Math.min(100, v)));
+                            }}
+                            className="w-16 px-2 py-1 text-xs bg-ctp-base border border-ctp-overlay1/40 rounded"
+                            aria-label="Progress percent"
+                          />
+                          <span className="text-xs text-ctp-subtext0">%</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          className="px-3 py-1.5 bg-ctp-blue-600 text-ctp-base rounded disabled:opacity-60"
+                          onClick={() => saveProgress(m.id)}
+                          disabled={savingId === m.id}
+                          aria-busy={savingId === m.id}
+                        >
+                          {savingId === m.id ? (
+                            <span className="inline-flex items-center gap-2">
+                              <svg
+                                className="h-4 w-4 animate-spin"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                              </svg>
+                              Saving…
+                            </span>
+                          ) : (
+                            "Save"
+                          )}
+                        </button>
+                        <button
+                          className="px-3 py-1.5 bg-ctp-surface1 rounded"
+                          onClick={() => setEditing(null)}
+                          disabled={savingId === m.id}
+                        >
                           Cancel
                         </button>
                       </div>
