@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { apiClient } from "@/lib/auth";
+import SummaryCard, { type SessionSummary } from "./SummaryCard";
 
 type TutorMessage = {
   id: string;
@@ -40,6 +41,10 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
   const [sending, setSending] = useState(false);
   const [useAI, setUseAI] = useState(true);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [genLoading, setGenLoading] = useState(false);
 
   // Auto scroll to bottom when messages change
   useEffect(() => {
@@ -78,8 +83,21 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
           const msgs = await apiClient.get<{ messages: TutorMessage[] }>(`/api/tutor/sessions/${active.id}/messages`);
           if (cancelled) return;
           setMessages(msgs.data.messages || []);
+          // 4) Try fetch existing summary (best-effort)
+          setSummaryLoading(true);
+          setSummaryError(null);
+          try {
+            const res = await apiClient.get<{ summary: SessionSummary }>(`/api/tutor/sessions/${active.id}/summary`);
+            if (!cancelled) setSummary(res.data.summary);
+          } catch (e: unknown) {
+            // 404 is fine; means none yet
+            if (!cancelled) setSummary(null);
+          } finally {
+            if (!cancelled) setSummaryLoading(false);
+          }
         } else {
           setMessages([]);
+          setSummary(null);
         }
       } catch (e: unknown) {
         if (cancelled) return;
@@ -100,6 +118,30 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
       cancelled = true;
     };
   }, [open, goalId, milestoneId, sessionId]);
+
+  async function handleGenerateSummary(force = false) {
+    if (!session?.id || genLoading) return;
+    setGenLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await apiClient.post<{ summary: SessionSummary; cached?: boolean }>(
+        `/api/tutor/sessions/${session.id}/summary`,
+        force ? { force: true } : {}
+      );
+      setSummary(res.data.summary);
+    } catch (e: unknown) {
+      let errMsg = "Failed to generate summary";
+      if (typeof e === "object" && e && "response" in (e as Record<string, unknown>)) {
+        const resp = (e as { response?: { data?: { error?: string } } }).response;
+        errMsg = resp?.data?.error ?? errMsg;
+      } else if (e instanceof Error) {
+        errMsg = e.message;
+      }
+      setSummaryError(String(errMsg));
+    } finally {
+      setGenLoading(false);
+    }
+  }
 
   async function handleSend() {
     if (sending) return;
@@ -203,6 +245,31 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
             {loading && <div className="text-ctp-subtext0 text-sm">Loading conversation…</div>}
             {bootError && (
               <div className="text-ctp-yellow-700 text-sm">{bootError}</div>
+            )}
+            {/* Summary section */}
+            {session?.id && (
+              <div className="mb-3">
+                <div className="text-xs text-ctp-subtext0 mb-1">Session insights</div>
+                {summaryLoading ? (
+                  <div className="text-ctp-subtext0 text-sm">Fetching summary…</div>
+                ) : summary ? (
+                  <SummaryCard summary={summary} />
+                ) : (
+                  <div className="rounded-lg border border-ctp-overlay1/40 bg-ctp-surface1 p-3">
+                    <div className="text-sm text-ctp-subtext0 mb-2">No summary yet for this session.</div>
+                    <button
+                      className="px-3 py-2 rounded bg-ctp-blue-600 text-ctp-base disabled:opacity-60"
+                      onClick={() => void handleGenerateSummary(false)}
+                      disabled={genLoading}
+                    >
+                      {genLoading ? "Generating…" : "Generate summary"}
+                    </button>
+                    {summaryError && (
+                      <div className="mt-2 text-[11px] text-ctp-yellow-700">{summaryError}</div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
             {!loading && messages.length === 0 && !bootError && (
               <div className="text-ctp-subtext0 text-sm">Say hi to your tutor to get started.</div>

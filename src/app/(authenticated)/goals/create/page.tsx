@@ -32,7 +32,7 @@ export default function CreateGoalPage() {
   const [showModal, setShowModal] = useState(false);
   const [createdGoalId, setCreatedGoalId] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
-  const [useAI, setUseAI] = useState<boolean>(false);
+  const [useAI, setUseAI] = useState<boolean>(true);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [aiInfo, setAiInfo] = useState<string | null>(null);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
@@ -328,7 +328,7 @@ export default function CreateGoalPage() {
         <div className="flex items-center gap-4">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={useAI} onChange={(e) => setUseAI(e.target.checked)} />
-            Use AI (OpenRouter)
+            Use AI
           </label>
           <button
             type="submit"
@@ -409,11 +409,11 @@ export default function CreateGoalPage() {
               <button className="px-3 py-1 bg-ctp-surface1 rounded" onClick={() => setHistoryOpen(false)}>Close</button>
             </div>
             <ul className="space-y-2 max-h-80 overflow-auto">
-              {history.map((h, idx) => (
+        {history.map((h, idx) => (
                 <li key={h.id} className="border border-ctp-overlay1/40 rounded p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-ctp-subtext0">
-                      #{idx + 1} · {new Date(h.createdAt).toLocaleString()} · {getParsedJourneyTitle(h.response) ?? h.provider}
+          #{idx + 1} · {new Date(h.createdAt).toLocaleString()} · {(() => { const title = getParsedJourneyTitle(h.response); if (title) return title; const p = (h.provider || "").toString().toLowerCase(); return p.includes("openrouter") ? "AI" : (p || ""); })()}
                     </div>
                     <button className="text-sm px-2 py-1 border rounded" onClick={() => {
                       const parsed = parseSuggestionFromHistory(h.response);

@@ -6,6 +6,7 @@ import { apiClient, clearStoredToken, getStoredToken, AxiosErrorResponse } from 
 import LogCheckinModal from "@/components/checkin/LogCheckinModal";
 import CheckinList from "@/components/checkin/CheckinList";
 import Link from "next/link";
+import MetricCard from "@/components/analytics/MetricCard";
 
 type MeResponse = { name: string; email: string };
 type Analytics = {
@@ -14,7 +15,9 @@ type Analytics = {
 	avgCompletionPercent: number; // 0..100
 	activeGoals: number;
 	learningVelocityPerWeek: number;
-	goalsTimeseries: { weekStart: string; createdCount: number; completedCount: number }[];
+	totalTutorSessions: number;
+	avgSessionLengthMinutes: number;
+	goalsTimeseries?: { weekStart: string; createdCount: number; completedCount: number }[];
 };
 
 export default function DashboardPage() {
@@ -36,7 +39,7 @@ export default function DashboardPage() {
 			try {
 				const [meRes, analyticsRes] = await Promise.all([
 					apiClient.get<MeResponse>("/api/auth/me"),
-					apiClient.get<Analytics>("/api/analytics"),
+					apiClient.get<Analytics>("/api/analytics/overview"),
 				]);
 				setUser(meRes.data);
 				setMetrics(analyticsRes.data);
@@ -151,12 +154,13 @@ export default function DashboardPage() {
 				</div>
 
 				{/* Metric cards */}
-				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
 					<MetricCard title="Total Goals" value={metrics?.totalGoals ?? 0} href="/goals" />
 					<MetricCard title="Completed Goals" value={metrics?.completedGoals ?? 0} href="/goals?status=completed" />
 					<MetricCard title="Avg Completion %" value={`${Math.round(metrics?.avgCompletionPercent ?? 0)}%`} href="/goals" />
 					<MetricCard title="Active Goals" value={metrics?.activeGoals ?? 0} href="/goals?status=active" />
 					<MetricCard title="Learning Velocity" value={`${(metrics?.learningVelocityPerWeek ?? 0).toFixed(2)}/wk`} href="/goals" />
+					<MetricCard title="Avg Session Length" value={`${(metrics?.avgSessionLengthMinutes ?? 0).toFixed(1)}m`} href="/goals" />
 				</div>
 
 				{/* Chart */}
@@ -186,12 +190,4 @@ export default function DashboardPage() {
 	);
 }
 
-function MetricCard({ title, value, href }: { title: string; value: string | number; href: string }) {
-	return (
-		<Link href={href} className="block bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-4 hover:shadow-sm">
-			<div className="text-xs uppercase tracking-wide text-ctp-subtext0">{title}</div>
-			<div className="mt-2 text-2xl font-semibold text-ctp-text">{value}</div>
-			<div className="mt-2 text-xs text-ctp-blue-700">View details →</div>
-		</Link>
-	);
-}
+// MetricCard moved to shared component

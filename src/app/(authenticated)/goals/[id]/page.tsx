@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 import CheckinList from "@/components/checkin/CheckinList";
 import LogCheckinModal from "@/components/checkin/LogCheckinModal";
 import CreateCheckinForm from "@/components/checkin/CreateCheckinForm";
+import BarChart from "@/components/analytics/BarChart";
+import SummaryList, { SessionSummary as SummaryItem } from "@/components/analytics/SummaryList";
 
 const TutorPanel = dynamic(() => import("@/components/tutor/TutorPanel"), { ssr: false });
 
@@ -54,7 +56,7 @@ export default function GoalDetailPage() {
     }
     return null;
   }
-  const [useAI, setUseAI] = useState<boolean>(false);
+  const [useAI, setUseAI] = useState<boolean>(true);
   const [heuristic, setHeuristic] = useState<SuggestionJourney | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState<SuggestionJourney | null>(null);
   const [suggestLoading, setSuggestLoading] = useState<boolean>(false);
@@ -81,6 +83,17 @@ export default function GoalDetailPage() {
   const [schedules, setSchedules] = useState<Array<{ id: string; frequency: "daily" | "weekly" | "biweekly"; nextDueAt?: string | null }>>([]);
   const [schedulesLoading, setSchedulesLoading] = useState<boolean>(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | undefined>(undefined);
+  const [analytics, setAnalytics] = useState<null | {
+    goalId: string;
+    totalMilestones: number;
+    completedMilestones: number;
+    completionRatePercent: number;
+    completionPerMilestone: Array<{ milestoneId: string; title: string; percentComplete: number }>;
+    milestonesCompletedTimeline: Array<{ weekStartISO: string; completedCount: number }>;
+    sessionSummaries: Array<{ sessionId: string; summaryText: string; createdAt: string; keyPoints?: string[]; actionItems?: Array<{ text: string; due?: string }> }>;
+  }>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -179,6 +192,23 @@ export default function GoalDetailPage() {
   useEffect(() => {
     if (goalId) loadSchedules();
   }, [goalId, checkinsVersion]);
+
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!goalId) return;
+      setAnalyticsLoading(true);
+      setAnalyticsError(null);
+      try {
+        const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
+        setAnalytics(r.data);
+      } catch (e: any) {
+        setAnalyticsError(e?.response?.data?.error || e?.message || "Failed to load analytics");
+      } finally {
+        setAnalyticsLoading(false);
+      }
+    }
+    fetchAnalytics();
+  }, [goalId]);
 
   const milestones = useMemo(() => {
     if (!goal) return [] as Milestone[];
@@ -286,7 +316,7 @@ export default function GoalDetailPage() {
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={useAI} onChange={(e) => setUseAI(e.target.checked)} />
-            Use AI (OpenRouter)
+            Use AI
           </label>
           <button
             className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
@@ -654,6 +684,46 @@ export default function GoalDetailPage() {
                         >
                           Cancel
                         </button>
+                      </div>
+
+                      {/* Analytics section */}
+                      <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-sm font-medium text-ctp-text">Analytics</div>
+                        </div>
+                        {analyticsLoading && <div className="text-ctp-subtext0">Loading analytics…</div>}
+                        {analyticsError && <div className="text-ctp-red-600">{analyticsError}</div>}
+                        {analytics && (
+                          <div className="space-y-6">
+                            <div>
+                              <div className="text-sm text-ctp-subtext0 mb-2">Completion per milestone</div>
+                              <BarChart
+                                items={analytics.completionPerMilestone.map((m) => ({ label: m.title.slice(0, 6), value: m.percentComplete }))}
+                              />
+                            </div>
+                            <div>
+                              <div className="text-sm text-ctp-subtext0 mb-2">Completions per week</div>
+                              <BarChart
+                                items={analytics.milestonesCompletedTimeline.map((t) => ({ label: t.weekStartISO.slice(5), value: t.completedCount }))}
+                              />
+                            </div>
+                            <div>
+                              <div className="text-sm text-ctp-subtext0 mb-2">Session Summaries</div>
+                              <SummaryList
+                                items={(analytics.sessionSummaries || []) as SummaryItem[]}
+                                generate={async (sessionId: string) => {
+                                  try {
+                                    await apiClient.post(`/api/tutor/sessions/${sessionId}/summary`, { force: true });
+                                    const r = await apiClient.get(`/api/analytics/goal/${goalId}`);
+                                    setAnalytics(r.data);
+                                  } catch (e) {
+                                    alert("Failed to generate summary");
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
