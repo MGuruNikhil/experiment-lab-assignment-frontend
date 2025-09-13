@@ -399,7 +399,7 @@ export default function GoalDetailPage() {
                         <button className="px-3 py-1 bg-ctp-blue-600 text-ctp-base rounded" onClick={() => saveProgress(m.id)}>
                           Save
                         </button>
-                        <button className="px-3 py-1 bg-ctp-surface1 text-ctp-text rounded" onClick={() => setEditing(null)}>
+                        <button className="px-3 py-1 bg-ctp-surface1 rounded" onClick={() => setEditing(null)}>
                           Cancel
                         </button>
                       </div>
@@ -412,234 +412,23 @@ export default function GoalDetailPage() {
         </div>
       ))}
 
-      {suggestModalOpen && (heuristic || aiSuggestion) && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-ctp-surface0 rounded shadow-lg max-w-2xl w-full p-6 border border-ctp-overlay1/40" role="dialog" aria-modal="true">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold text-lg text-ctp-text">Suggested Journey</div>
-              <button className="px-2 py-1 text-sm border border-ctp-overlay1/50 rounded" onClick={() => setSuggestModalOpen(false)}>Close</button>
-            </div>
-            {suggestInfo && <div className="text-sm text-ctp-blue-700 mt-3">{suggestInfo}</div>}
-            {suggestWarning && <div className="text-sm text-ctp-yellow-700 mt-2">{suggestWarning}</div>}
-            <div className="text-sm text-ctp-subtext0 mt-2">
-              {(aiSuggestion ?? heuristic)?.durationWeeks} weeks · {(aiSuggestion ?? heuristic)?.chunking}
-            </div>
-            <ol className="mt-3 list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
-              {(aiSuggestion ?? heuristic)?.milestones?.map((m, idx: number) => (
-                <li key={idx}>
-                  <div className="font-medium text-ctp-text">{m.title}</div>
-                  <div className="text-sm text-ctp-subtext0">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
-                  {m.description && <div className="text-sm text-ctp-subtext0">{m.description}</div>}
-                </li>
-              ))}
-            </ol>
-            <div className="flex gap-2 mt-4">
-              <button
-                className="px-3 py-2 text-sm bg-ctp-green-600 text-ctp-base rounded"
-                onClick={async () => {
-                  try {
-                    if (aiSuggestion?.journeyId) {
-                      await load();
-                      setSuggestModalOpen(false);
-                      return;
-                    }
-                    const current = (aiSuggestion ?? heuristic)!;
-                    const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
-                      title: current.journeyTitle,
-                      meta: { generated: aiSuggestion ? "openrouter" : "heuristic" },
-                    });
-                    for (const [i, m] of (current.milestones ?? []).entries()) {
-                      await apiClient.post(`/api/journeys/${journey.id}/milestones`, {
-                        title: m.title,
-                        description: m.description,
-                        orderIndex: i,
-                        startWeek: m.startWeek,
-                        endWeek: m.endWeek,
-                        estimatedHours: m.estimatedHours,
-                      });
-                    }
-                    await load();
-                    setSuggestModalOpen(false);
-                  } catch {
-                    // ignore
-                  }
-                }}
-              >
-                Accept
-              </button>
-              <button
-                className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded"
-                onClick={async () => {
-                  try {
-                    const resp = await apiClient.post(`/api/goals/${goalId}/suggest`, { useLLM: true });
-                    const data = resp.data as Partial<SuggestionJourney>;
-                    if (data?.journeyTitle && data?.milestones) setAiSuggestion(data as SuggestionJourney);
-                  } catch (e: unknown) {
-                    const anyErr = e as { response?: { status?: number; data?: { retryAfter?: number } } };
-                    const status = anyErr?.response?.status;
-                    if (status === 429) {
-                      const retryAfter = anyErr?.response?.data?.retryAfter;
-                      const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
-                      const hh = String(d.getHours()).padStart(2, "0");
-                      const mm = String(d.getMinutes()).padStart(2, "0");
-                      alert(`AI suggestion limit reached. Try again after ${hh}:${mm}`);
-                    }
-                  }
-                }}
-              >
-                Regenerate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {historyOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggestion History</h2>
-              <button className="px-3 py-1 text-sm border rounded" onClick={() => setHistoryOpen(false)}>Close</button>
-            </div>
-            <div className="space-y-2 max-h-96 overflow-auto">
-              {history.map((h) => {
-                const title = getParsedJourneyTitle(h.response);
-                return (
-                  <div
-                    key={h.id}
-                    className="border rounded p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
-          onClick={() => {
-                      const sug = parseSuggestionFromHistory(h.response);
-                      if (sug) {
-                        setPreviewSuggestion(sug);
-            setPreviewProvider(h.provider === "openrouter" ? "openrouter" : "heuristic");
-                        setPreviewOpen(true);
-                        setHistoryOpen(false);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-                        const sug = parseSuggestionFromHistory(h.response);
-                        if (sug) {
-                          setPreviewSuggestion(sug);
-              setPreviewProvider(h.provider === "openrouter" ? "openrouter" : "heuristic");
-                          setPreviewOpen(true);
-                          setHistoryOpen(false);
-                        }
-                      }
-                    }}
-                  >
-                    <div className="text-sm">{h.provider} · {new Date(h.createdAt).toLocaleString()}</div>
-                    {h.provider === "openrouter" && title && (
-                      <div className="text-sm text-slate-700 dark:text-slate-200">{title}</div>
-                    )}
-                  </div>
-                );
-              })}
-              {history.length === 0 && <div className="text-sm text-slate-500">No suggestions yet.</div>}
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* unmet dependency dialog */}
       {unmetDeps.length > 0 && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-lg w-full p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Cannot complete milestone</h2>
-            <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">The following dependencies are not complete:</p>
-            <ul className="list-disc pl-6 mt-3 space-y-1 text-slate-800 dark:text-slate-100">
+          <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-lg w-full p-6">
+            <h2 className="text-lg font-semibold text-ctp-text">Cannot mark complete yet</h2>
+            <p className="text-sm text-ctp-subtext0 mt-2">You must complete these dependent milestones first:</p>
+            <ul className="list-disc pl-6 mt-2 space-y-1 text-ctp-text">
               {unmetDeps.map((d) => (
                 <li key={d.id}>{d.title}</li>
               ))}
             </ul>
-            <div className="flex justify-end mt-4">
-              <button className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-50 rounded" onClick={() => setUnmetDeps([])}>Close</button>
+            <div className="flex justify-end gap-2 mt-4">
+              <button className="px-4 py-2 bg-ctp-surface1 rounded" onClick={() => setUnmetDeps([])}>Close</button>
             </div>
           </div>
         </div>
       )}
-
-      {previewOpen && previewSuggestion && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded shadow-lg max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Suggestion Preview</h2>
-              <button className="px-3 py-1 text-sm border rounded" onClick={() => setPreviewOpen(false)}>Close</button>
-            </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-              {previewSuggestion.durationWeeks} weeks · {previewSuggestion.chunking}
-            </div>
-            <ol className="list-decimal pl-6 space-y-2 max-h-80 overflow-auto">
-              {previewSuggestion.milestones.map((m, idx) => (
-                <li key={`${idx}-${m.title}`}>
-                  <div className="font-medium text-slate-900 dark:text-slate-50">{m.title}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">Weeks {m.startWeek} - {m.endWeek} · ~{m.estimatedHours}h</div>
-                  {m.description && <div className="text-sm text-slate-700 dark:text-slate-200">{m.description}</div>}
-                </li>
-              ))}
-            </ol>
-            <div className="flex justify-end gap-3 mt-4">
-              <button className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-50 rounded" onClick={() => setPreviewOpen(false)}>Close</button>
-              <button
-                className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-60"
-                disabled={previewAccepting}
-                onClick={async () => {
-                  try {
-                    setPreviewAccepting(true);
-                    const current = previewSuggestion;
-                    // If this suggestion came from AI history, the server already created journey+milestones.
-                    // Just close and reload to avoid any duplicate creations.
-                    if (previewProvider === "openrouter") {
-                      setPreviewOpen(false);
-                      setPreviewSuggestion(null);
-                      await load();
-                      return;
-                    }
-                    // Avoid duplicates: if a journey with the same title already exists, just close & reload
-                    const existingJourney = (goal?.journeys ?? []).find((j) => (j.title ?? "") === current.journeyTitle);
-                    if (existingJourney) {
-                      // Already created (likely when AI suggestion was generated). Do not duplicate milestones.
-                      setPreviewOpen(false);
-                      setPreviewSuggestion(null);
-                      await load();
-                      return;
-                    } else {
-                      const { data: journey } = await apiClient.post(`/api/goals/${goalId}/journeys`, {
-                        title: current.journeyTitle,
-                        meta: { generated: "history" },
-                      });
-                      for (const [i, m] of current.milestones.entries()) {
-                        await apiClient.post(`/api/journeys/${journey.id}/milestones`, {
-                        title: m.title,
-                        description: m.description,
-                        orderIndex: i,
-                        startWeek: m.startWeek,
-                        endWeek: m.endWeek,
-                        estimatedHours: m.estimatedHours,
-                        });
-                      }
-                    }
-                    setPreviewOpen(false);
-                    setPreviewSuggestion(null);
-                    setPreviewProvider(null);
-                    await load();
-                  } catch {
-                    // ignore
-                  } finally {
-                    setPreviewAccepting(false);
-                  }
-                }}
-              >
-                Accept
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+  </div>
   );
 }
-
-

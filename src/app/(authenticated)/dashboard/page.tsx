@@ -171,5 +171,3 @@ function MetricCard({ title, value, href }: { title: string; value: string | num
 		</Link>
 	);
 }
-
-

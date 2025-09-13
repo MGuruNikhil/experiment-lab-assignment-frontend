@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import GoalsClient from "./GoalsClient";
+import GoalsClient from "@/app/(authenticated)/goals/GoalsClient";
 
 export default function GoalsPage() {
   return (
@@ -8,5 +8,3 @@ export default function GoalsPage() {
     </Suspense>
   );
 }
-
-

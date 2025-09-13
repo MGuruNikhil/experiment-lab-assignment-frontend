@@ -400,111 +400,37 @@ export default function CreateGoalPage() {
         </div>
       )}
 
+      {/* History modal */}
       {historyOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-semibold text-ctp-text">Suggestion History</h2>
-              <button className="px-3 py-1 text-sm border border-ctp-overlay1/50 rounded" onClick={() => setHistoryOpen(false)}>Close</button>
+              <button className="px-3 py-1 bg-ctp-surface1 rounded" onClick={() => setHistoryOpen(false)}>Close</button>
             </div>
-            <div className="space-y-2 max-h-96 overflow-auto">
-              {history.map((h) => {
-                const title = getParsedJourneyTitle(h.response);
-                return (
-                  <div
-                    key={h.id}
-                    className="border border-ctp-overlay1/40 rounded p-3 hover:bg-ctp-surface1 cursor-pointer"
-                    onClick={() => {
-                      const sug = parseSuggestionFromHistory(h.response);
-                      if (sug) {
-                        setSuggestion(sug);
-                        setSuggestionSource(h.provider === "openrouter" ? "ai" : "heuristic");
-                        setSuggestionCached(Boolean(h.expiresAt));
-                        setHistoryOpen(false);
+            <ul className="space-y-2 max-h-80 overflow-auto">
+              {history.map((h, idx) => (
+                <li key={h.id} className="border border-ctp-overlay1/40 rounded p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-ctp-subtext0">
+                      #{idx + 1} · {new Date(h.createdAt).toLocaleString()} · {getParsedJourneyTitle(h.response) ?? h.provider}
+                    </div>
+                    <button className="text-sm px-2 py-1 border rounded" onClick={() => {
+                      const parsed = parseSuggestionFromHistory(h.response);
+                      if (parsed) {
+                        setSuggestion(parsed);
+                        setSuggestionSource("ai");
+                        setSuggestionCached(Boolean((h as unknown as { cached?: boolean })?.cached));
                         setShowModal(true);
                       }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        const sug = parseSuggestionFromHistory(h.response);
-                        if (sug) {
-                          setSuggestion(sug);
-                          setSuggestionSource(h.provider === "openrouter" ? "ai" : "heuristic");
-                          setSuggestionCached(Boolean(h.expiresAt));
-                          setHistoryOpen(false);
-                          setShowModal(true);
-                        }
-                      }
-                    }}
-                  >
-                    <div className="text-sm text-ctp-subtext0">{h.provider} · {new Date(h.createdAt).toLocaleString()}</div>
-                    {h.provider === "openrouter" && title && (
-                      <div className="text-sm text-ctp-subtext0">{title}</div>
-                    )}
+                    }}>Preview</button>
                   </div>
-                );
-              })}
-              {history.length === 0 && <div className="text-sm text-ctp-subtext0">No suggestions yet.</div>}
-            </div>
-            <div className="flex justify-end mt-3">
-              {createdGoalId && (
-        <button
-                  className="px-4 py-2 bg-ctp-blue-600 text-ctp-base rounded"
-                  onClick={async () => {
-                    try {
-                      setAiLoading(true);
-                      setAiInfo("Generating AI suggestion...");
-          setHistoryOpen(false);
-                      const { data: ai } = await apiClient.post(`/api/goals/${createdGoalId}/suggest`, {
-                        useLLM: true,
-                        chunking,
-                        durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
-                      });
-                      const aiData = ai as AISuggestionResp;
-                      console.log("[ui] regenerate.ai.response", { cached: aiData.cached, hasJourney: Boolean(aiData.journeyTitle && aiData.milestones) });
-                      setSuggestionCached(Boolean(aiData?.cached));
-                      if (aiData?.journeyTitle && aiData?.milestones) {
-                        setSuggestion(aiData as HeuristicSuggestion);
-                        setSuggestionSource("ai");
-                      } else {
-                        // Fallback to heuristic on no valid AI plan
-                        const { data: sug } = await apiClient.post(`/api/goals/${createdGoalId}/suggest`, {
-                          useLLM: false,
-                          chunking,
-                          durationWeeks: durationWeeks === "" ? undefined : Number(durationWeeks),
-                        });
-                        setSuggestion(sug as HeuristicSuggestion);
-                        setSuggestionSource("heuristic");
-                        setSuggestionCached(false);
-                      }
-                      setShowModal(true);
-                    } catch (err: unknown) {
-                      const anyErr = err as { response?: { status?: number; data?: { retryAfter?: number } } };
-                      const status = anyErr?.response?.status;
-                      if (status === 429) {
-                        const retryAfter = anyErr?.response?.data?.retryAfter;
-                        const d = new Date(Date.now() + (retryAfter ?? 0) * 1000);
-                        const hh = String(d.getHours()).padStart(2, "0");
-                        const mm = String(d.getMinutes()).padStart(2, "0");
-                        alert(`AI suggestion limit reached. Try again after ${hh}:${mm}`);
-                      }
-                    } finally {
-                      setAiLoading(false);
-                      setAiInfo(null);
-                    }
-                  }}
-                >
-                  Regenerate
-                </button>
-              )}
-            </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
     </div>
   );
 }
-
-
