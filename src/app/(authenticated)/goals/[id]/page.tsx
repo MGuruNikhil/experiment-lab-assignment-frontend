@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/auth";
 import dynamic from "next/dynamic";
+import CheckinList from "@/components/checkin/CheckinList";
+import LogCheckinModal from "@/components/checkin/LogCheckinModal";
+import CreateCheckinForm from "@/components/checkin/CreateCheckinForm";
 
 const TutorPanel = dynamic(() => import("@/components/tutor/TutorPanel"), { ssr: false });
 
@@ -72,6 +75,12 @@ export default function GoalDetailPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [tutorPlaceholder, setTutorPlaceholder] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [createCheckinOpen, setCreateCheckinOpen] = useState<boolean>(false);
+  const [logCheckinOpen, setLogCheckinOpen] = useState<boolean>(false);
+  const [checkinsVersion, setCheckinsVersion] = useState<number>(0);
+  const [schedules, setSchedules] = useState<Array<{ id: string; frequency: "daily" | "weekly" | "biweekly"; nextDueAt?: string | null }>>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState<boolean>(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | undefined>(undefined);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -153,6 +162,23 @@ export default function GoalDetailPage() {
     if (goalId) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goalId]);
+
+  async function loadSchedules() {
+    if (!goalId) return;
+    setSchedulesLoading(true);
+    try {
+      const r = await apiClient.get(`/api/checkins/schedules?goalId=${goalId}`);
+      setSchedules(r.data || []);
+    } catch {
+      setSchedules([]);
+    } finally {
+      setSchedulesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (goalId) loadSchedules();
+  }, [goalId, checkinsVersion]);
 
   const milestones = useMemo(() => {
     if (!goal) return [] as Milestone[];
@@ -263,6 +289,20 @@ export default function GoalDetailPage() {
             Use AI (OpenRouter)
           </label>
           <button
+            className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
+            onClick={() => setCreateCheckinOpen(true)}
+          >
+            Set up Check-in
+          </button>
+          <button
+            className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-blue-600 text-ctp-base hover:bg-ctp-blue-700 disabled:opacity-60"
+            onClick={() => setLogCheckinOpen(true)}
+            disabled={schedulesLoading || schedules.length === 0}
+            title={schedulesLoading ? "Loading schedules…" : schedules.length === 0 ? "Create a schedule first" : undefined}
+          >
+            Log Check-in
+          </button>
+          <button
             className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2 disabled:opacity-60"
             disabled={suggestLoading}
             onClick={async () => {
@@ -352,6 +392,48 @@ export default function GoalDetailPage() {
               style={{ width: `${overallProgress}%` }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Check-in schedule section */}
+      <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-lg text-ctp-text">Check-in schedule</div>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
+              onClick={() => setCreateCheckinOpen(true)}
+            >
+              Set up Check-in
+            </button>
+          </div>
+        </div>
+        <div className="mt-3">
+          {schedulesLoading ? (
+            <div className="text-sm text-ctp-subtext0">Loading…</div>
+          ) : schedules.length === 0 ? (
+            <div className="text-sm text-ctp-subtext0">No schedule yet. Create one to get reminders.</div>
+          ) : (
+            <ul className="space-y-2">
+              {schedules.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-3 p-3 rounded border border-ctp-overlay1/30 bg-ctp-surface1">
+                  <div className="text-sm">
+                    <div className="text-ctp-text capitalize">{s.frequency}</div>
+                    <div className="text-ctp-subtext0 text-xs">Next due: {s.nextDueAt ? new Date(s.nextDueAt).toLocaleString() : "—"}</div>
+                  </div>
+                  <button
+                    className="px-3 py-1.5 text-xs border border-ctp-overlay1/40 rounded bg-ctp-blue-600 text-ctp-base"
+                    onClick={() => {
+                      setSelectedScheduleId(s.id);
+                      setLogCheckinOpen(true);
+                    }}
+                  >
+                    Log Check-in
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -582,6 +664,22 @@ export default function GoalDetailPage() {
         </div>
       ))}
 
+      {/* Recent Check-ins */}
+      <div className="rounded-xl border border-ctp-overlay1/40 bg-ctp-surface0 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-semibold text-lg text-ctp-text">Recent check-ins</div>
+          <button
+            className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2 disabled:opacity-60"
+            onClick={() => setLogCheckinOpen(true)}
+            disabled={schedulesLoading || schedules.length === 0}
+            title={schedulesLoading ? "Loading schedules…" : schedules.length === 0 ? "Create a schedule first" : undefined}
+          >
+            Log Check-in
+          </button>
+        </div>
+        <CheckinList key={checkinsVersion} goalId={goalId} limit={5} />
+      </div>
+
       {/* unmet dependency dialog */}
       {unmetDeps.length > 0 && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
@@ -608,6 +706,38 @@ export default function GoalDetailPage() {
     milestoneId={selectedMilestoneId ?? undefined}
     sessionId={activeSessionId ?? undefined}
     placeholderHint={tutorPlaceholder ?? undefined}
+  />
+
+  {/* Create Check-in Modal */}
+  {createCheckinOpen && (
+    <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center">
+      <div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded shadow-lg max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-ctp-text">Set up Check-in</h2>
+          <button className="text-sm" onClick={() => setCreateCheckinOpen(false)}>Close</button>
+        </div>
+        <CreateCheckinForm
+          goalId={goalId}
+          milestones={milestones.map((m) => ({ id: m.id, title: m.title }))}
+          onCancel={() => setCreateCheckinOpen(false)}
+          onCreated={() => {
+            setCreateCheckinOpen(false);
+            setCheckinsVersion((v) => v + 1);
+          }}
+        />
+      </div>
+    </div>
+  )}
+
+  {/* Log Check-in Modal */}
+  <LogCheckinModal
+    open={logCheckinOpen}
+    onClose={() => setLogCheckinOpen(false)}
+    goalId={goalId}
+    onLogged={async () => {
+      await load();
+      setCheckinsVersion((v) => v + 1);
+    }}
   />
   </div>
   );

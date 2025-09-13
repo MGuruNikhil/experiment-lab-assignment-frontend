@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiClient, clearStoredToken, getStoredToken, AxiosErrorResponse } from "@/lib/auth";
+import LogCheckinModal from "@/components/checkin/LogCheckinModal";
+import CheckinList from "@/components/checkin/CheckinList";
+import Link from "next/link";
 
 type MeResponse = { name: string; email: string };
 type Analytics = {
@@ -21,6 +23,8 @@ export default function DashboardPage() {
 	const [metrics, setMetrics] = useState<Analytics | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [logOpen, setLogOpen] = useState(false);
+	const [listVersion, setListVersion] = useState(0);
 
 	useEffect(() => {
 		const token = getStoredToken();
@@ -140,7 +144,10 @@ export default function DashboardPage() {
 			<div className="max-w-5xl mx-auto space-y-6">
 				<div className="flex items-center justify-between">
 					<h1 className="text-2xl font-semibold text-ctp-text">{user ? `Welcome ${user.name}` : "Dashboard"}</h1>
-					<button onClick={handleLogout} className="rounded-md bg-ctp-blue-600 px-4 py-2 text-ctp-base hover:bg-ctp-blue-700">Logout</button>
+					<div className="flex items-center gap-2">
+						<button onClick={() => setLogOpen(true)} className="rounded-md bg-ctp-blue-600 px-4 py-2 text-ctp-base hover:bg-ctp-blue-700">Log Check-in</button>
+						<button onClick={handleLogout} className="rounded-md bg-ctp-surface1 px-4 py-2 hover:bg-ctp-surface2">Logout</button>
+					</div>
 				</div>
 
 				{/* Metric cards */}
@@ -157,7 +164,24 @@ export default function DashboardPage() {
 					<div className="text-sm font-medium text-ctp-subtext0 mb-2">Goals per week</div>
 					<div className="overflow-x-auto">{chart}</div>
 				</div>
+
+				{/* Recent Check-ins */}
+				<div className="bg-ctp-surface0 border border-ctp-overlay1/40 rounded-lg p-4">
+					<div className="flex items-center justify-between mb-2">
+						<div className="text-sm font-medium text-ctp-text">Recent check-ins</div>
+						<div className="flex items-center gap-2">
+							<button className="px-3 py-1.5 text-xs border border-ctp-overlay1/40 rounded" onClick={() => setLogOpen(true)}>Log</button>
+							<Link className="text-xs text-ctp-blue-700 hover:underline" href="/checkins">View all →</Link>
+						</div>
+					</div>
+					<CheckinList key={listVersion} limit={3} condensed />
+				</div>
 			</div>
+			<LogCheckinModal
+				open={logOpen}
+				onClose={() => setLogOpen(false)}
+				onLogged={() => setListVersion((v) => v + 1)}
+			/>
 		</div>
 	);
 }
