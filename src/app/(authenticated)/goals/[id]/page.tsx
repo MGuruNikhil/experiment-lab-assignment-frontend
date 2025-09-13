@@ -68,6 +68,9 @@ export default function GoalDetailPage() {
   const [suggestModalOpen, setSuggestModalOpen] = useState<boolean>(false);
   const [tutorOpen, setTutorOpen] = useState<boolean>(false);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+  const [askBusyId, setAskBusyId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [tutorPlaceholder, setTutorPlaceholder] = useState<string | null>(null);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -398,13 +401,40 @@ export default function GoalDetailPage() {
                       Update Progress
                     </button>
                     <button
-                      className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
-                      onClick={() => {
-                        setSelectedMilestoneId(m.id);
-                        setTutorOpen(true);
+                      className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2 disabled:opacity-60"
+                      disabled={askBusyId === m.id}
+                      onClick={async () => {
+                        setAskBusyId(m.id);
+                        setTutorPlaceholder(m.title);
+                        try {
+                          // Find existing open session for this milestone (client-side filter)
+                          type TutorSession = { id: string; status: "open" | "closed"; goalId?: string | null; milestoneId?: string | null };
+                          const list = await apiClient.get<{ sessions: TutorSession[] }>("/api/tutor/sessions");
+                          const sessions = list.data.sessions || [];
+                          const existing = sessions.find((s) => s.status !== "closed" && s.milestoneId === m.id);
+                          let sessionId: string;
+                          if (existing) {
+                            sessionId = existing.id;
+                          } else {
+                            const created = await apiClient.post<{ session: TutorSession }>("/api/tutor/sessions", {
+                              goalId,
+                              milestoneId: m.id,
+                              title: `Tutor: ${m.title}`,
+                            });
+                            sessionId = created.data.session.id;
+                          }
+                          setActiveSessionId(sessionId);
+                          setSelectedMilestoneId(m.id);
+                          setTutorOpen(true);
+                        } catch (e: any) {
+                          const msg = e?.response?.data?.error || e?.message || "Failed to open tutor";
+                          alert(String(msg));
+                        } finally {
+                          setAskBusyId(null);
+                        }
                       }}
                     >
-                      Tutor
+                      {askBusyId === m.id ? "Opening…" : "Ask Tutor"}
                     </button>
                   </div>
                   {editing === m.id && (
@@ -454,7 +484,14 @@ export default function GoalDetailPage() {
       )}
 
   {/* Tutor Panel */}
-  <TutorPanel open={tutorOpen} onClose={() => setTutorOpen(false)} goalId={goalId} milestoneId={selectedMilestoneId ?? undefined} />
+  <TutorPanel
+    open={tutorOpen}
+    onClose={() => setTutorOpen(false)}
+    goalId={goalId}
+    milestoneId={selectedMilestoneId ?? undefined}
+    sessionId={activeSessionId ?? undefined}
+    placeholderHint={tutorPlaceholder ?? undefined}
+  />
   </div>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { apiClient } from "@/lib/auth";
 
 type TutorMessage = {
@@ -26,9 +28,10 @@ export type TutorPanelProps = {
   sessionId?: string;
   goalId?: string;
   milestoneId?: string;
+  placeholderHint?: string;
 };
 
-export default function TutorPanel({ open, onClose, sessionId, goalId, milestoneId }: TutorPanelProps) {
+export default function TutorPanel({ open, onClose, sessionId, goalId, milestoneId, placeholderHint }: TutorPanelProps) {
   const [session, setSession] = useState<TutorSession | null>(null);
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -209,7 +212,9 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
                       ) : null}
                     </span>
                   </div>
-                  <div>{m.content}</div>
+                  <div className="prose prose-invert max-w-none prose-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ))}
@@ -224,7 +229,7 @@ export default function TutorPanel({ open, onClose, sessionId, goalId, milestone
               </label>
               <input
                 className="flex-1 px-3 py-2 rounded border border-ctp-overlay1/40 bg-ctp-base text-ctp-text placeholder-ctp-subtext0 focus:outline-none focus:ring-2 focus:ring-ctp-blue-700"
-                placeholder="Type your message…"
+                placeholder={placeholderHint ? `Ask about "${placeholderHint}"…` : "Type your message…"}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={onKeyDown}
