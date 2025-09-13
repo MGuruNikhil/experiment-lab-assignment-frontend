@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/auth";
+import dynamic from "next/dynamic";
+
+const TutorPanel = dynamic(() => import("@/components/tutor/TutorPanel"), { ssr: false });
 
 type Milestone = {
   id: string;
@@ -63,6 +66,8 @@ export default function GoalDetailPage() {
   const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<boolean>(false);
   const [suggestModalOpen, setSuggestModalOpen] = useState<boolean>(false);
+  const [tutorOpen, setTutorOpen] = useState<boolean>(false);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
 
   // Safely parse a stored history response back into a SuggestionJourney
   function parseSuggestionFromHistory(resp: unknown): SuggestionJourney | null {
@@ -303,6 +308,15 @@ export default function GoalDetailPage() {
             Suggest
           </button>
           <button
+            className="px-3 py-2 text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
+            onClick={() => {
+              setSelectedMilestoneId(null);
+              setTutorOpen(true);
+            }}
+          >
+            Tutor
+          </button>
+          <button
             className="px-3 py-2 text-sm border rounded"
             onClick={async () => {
               try {
@@ -383,6 +397,15 @@ export default function GoalDetailPage() {
                     >
                       Update Progress
                     </button>
+                    <button
+                      className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-surface1 hover:bg-ctp-surface2"
+                      onClick={() => {
+                        setSelectedMilestoneId(m.id);
+                        setTutorOpen(true);
+                      }}
+                    >
+                      Tutor
+                    </button>
                   </div>
                   {editing === m.id && (
                     <div className="mt-3 p-3 border border-ctp-overlay1/40 rounded bg-ctp-surface1">
@@ -429,6 +452,9 @@ export default function GoalDetailPage() {
           </div>
         </div>
       )}
+
+  {/* Tutor Panel */}
+  <TutorPanel open={tutorOpen} onClose={() => setTutorOpen(false)} goalId={goalId} milestoneId={selectedMilestoneId ?? undefined} />
   </div>
   );
 }

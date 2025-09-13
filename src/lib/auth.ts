@@ -38,6 +38,8 @@ const apiClient: AxiosInstance = axios.create({
 	headers: {
 		"Content-Type": "application/json",
 	},
+	// Support cookie auth in addition to Bearer tokens
+	withCredentials: true,
 });
 
 // Add request interceptor to include auth token

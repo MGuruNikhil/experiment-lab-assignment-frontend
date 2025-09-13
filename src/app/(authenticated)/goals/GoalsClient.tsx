@@ -23,6 +23,7 @@ export default function GoalsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -130,20 +131,42 @@ export default function GoalsClient() {
                 Edit
               </Link>
               <button
-                className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-rosewater-100/60 text-ctp-rosewater-700 hover:bg-ctp-rosewater-200/60"
+                className="px-3 py-1.5 text-xs sm:text-sm border border-ctp-overlay1/50 rounded bg-ctp-rosewater-100/60 text-ctp-rosewater-700 hover:bg-ctp-rosewater-200/60 disabled:opacity-60"
+                disabled={deletingId === g.id}
+                aria-busy={deletingId === g.id}
                 onClick={async () => {
+                  if (deletingId) return;
                   const yes = window.confirm(`Delete goal "${g.title}"? This will remove all journeys and milestones.`);
                   if (!yes) return;
+                  setDeletingId(g.id);
                   try {
                     await apiClient.delete(`/api/goals/${g.id}`);
                     setGoals((prev) => prev.filter((x) => x.id !== g.id));
                   } catch (e: unknown) {
                     const err = e as { response?: { data?: { error?: string } }; message?: string };
                     setError(err.response?.data?.error ?? err.message ?? "Failed to delete goal");
+                  } finally {
+                    setDeletingId(null);
                   }
                 }}
               >
-                Delete
+                {deletingId === g.id ? (
+                  <span className="inline-flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    Deleting...
+                  </span>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>
