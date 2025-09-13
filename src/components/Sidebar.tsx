@@ -22,6 +22,9 @@ export default function Sidebar() {
 
   return (
     <nav aria-label="Primary" className="flex flex-col gap-1 p-3">
+      <div className="px-2 py-3 text-xl font-semibold text-ctp-text">
+        GoalForge
+      </div>
       <div className="px-2 py-3 text-sm font-semibold tracking-wide uppercase text-ctp-subtext1">
         Navigation
       </div>
